@@ -1,1 +1,1 @@
-from .two_row_qnns import QNN, RotQNN, CCRotQNN, CCRotQNN2
+from .two_row_qnns import QNN, RotQNN, CCRotQNN, CCRotQNN2, CCRYQNN

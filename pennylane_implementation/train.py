@@ -1,5 +1,6 @@
 import time
-from visualize import get_frozen_lake_frame, plot_animated_frozen_lake, plot_loss
+from visualize.rot_swap_value import get_frozen_lake_frame, plot_animated_frozen_lake, plot_loss
+from numpy import cos
 
 
 def train(loss_fn, optimizer, num_iterations, sub_iterations, action_qnn, value_qnn, loss_fn_params):
@@ -23,7 +24,8 @@ def train(loss_fn, optimizer, num_iterations, sub_iterations, action_qnn, value_
                     for parameter in action_qnn.parameters():
                         parameter.requires_grad = False
 
-                print(f"Start iterations {i+1}/{num_iterations}, type_itr: {type_itr+1}/{len(sub_iterations)}, sub_iteration: {sub_i+1}/{num_sub_itr}, l_type: {itr_type}")
+                print(
+                    f"Start iterations {i + 1}/{num_iterations}, type_itr: {type_itr + 1}/{len(sub_iterations)}, sub_iteration: {sub_i + 1}/{num_sub_itr}, l_type: {itr_type}")
 
                 # zero gradients
                 optimizer.zero_grad(set_to_none=True)
@@ -45,18 +47,31 @@ def train(loss_fn, optimizer, num_iterations, sub_iterations, action_qnn, value_
                 print("Backprop")
                 loss.backward()
 
+                print(f"value_qnn.out_q_parameters.grad:\n{value_qnn.out_q_parameters.grad}")
+
                 print("Optimize")
                 optimizer.step()
 
                 frames.append(get_frozen_lake_frame(
                     loss_fn_params["environment"], action_qnn, value_qnn,
-                    len(loss_fn_params["x_qubits"]), len(loss_fn_params["y_qubits"])
+                    len(loss_fn_params["x_qubits"]), len(loss_fn_params["y_qubits"]),
+                    loss_fn_params["gamma"],
                 ))
 
                 if itr_type == 1:
                     for parameter in value_qnn.parameters():
                         parameter.requires_grad = True
                 elif itr_type == 2:
+                    for parameter in value_qnn.parameters():
+                        parameter.requires_grad = False
+                    sum = 0
+                    for v in value_qnn.out_q_parameters:
+                        sum += v.item()
+                    sum /= 2.
+                    sum = cos(sum) * loss_fn_params["environment"].r_m / (1-loss_fn_params["gamma"])
+                    print(f"value of [0,0]: {sum}")
+                    for parameter in value_qnn.parameters():
+                        parameter.requires_grad = True
                     for parameter in action_qnn.parameters():
                         parameter.requires_grad = True
 
@@ -81,7 +96,7 @@ def train(loss_fn, optimizer, num_iterations, sub_iterations, action_qnn, value_
             )
         )
 
-        fig = plot_animated_frozen_lake(loss_fn_params["environment"], frames)
+        fig = plot_animated_frozen_lake(loss_fn_params["environment"], frames, loss_fn_params["gamma"])
         with open("plots/fig.html", "w") as f:
             f.write(fig.to_html())
             f.close()

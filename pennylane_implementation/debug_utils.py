@@ -1,3 +1,4 @@
+from typing import List, Iterable
 import numpy as np
 from utils import int_to_bitlist
 
@@ -13,8 +14,61 @@ def vector_to_ket_expression(vec, no_zeros=True):
     return result
 
 
+def ausspuren(state: List[int], ausspur_wires: Iterable[int]):
+    state = np.array(state)
+    total_qubits = int(np.log2(len(state)))
+    ausspur_wires = set(ausspur_wires)
+    ausspur_composition = [0]
+    for i in range(total_qubits):
+        if i not in ausspur_wires:
+            if isinstance(ausspur_composition[-1], int):
+                ausspur_composition.append(np.eye(2))
+            else:
+                ausspur_composition[-1] = np.kron(ausspur_composition[-1], np.eye(2))
+        else:
+            if not isinstance(ausspur_composition[-1], int):
+                ausspur_composition.append(1)
+            else:
+                ausspur_composition[-1] += 1
+    ausspur_sum = None
+    for i in range(len(ausspur_wires)):
+        basis_vec = int_to_bitlist(i, len(ausspur_wires))
+        current_basis_bit = 0
+        temp = np.array([1])
+        for ausspur_component in ausspur_composition:
+            if isinstance(ausspur_component, int):
+                for _ in range(ausspur_component):
+                    basis_bit = basis_vec[current_basis_bit]
+                    current_basis_bit += 1
+                    temp = np.kron(temp, np.array([1-basis_bit, basis_bit]))
+            else:
+                temp = np.kron(temp, ausspur_component)
+        print(state.size)
+        print(temp.size)
+        temp = temp @ state
+        ausspur_sum = temp if ausspur_sum is None else ausspur_sum + temp
+
+    return ausspur_sum
+
+
+def snapshots_to_ausspur_dict(snapshots, ausspur_wires: List[List[int]]):
+    ausspur_dict = dict()
+    for title, state in snapshots.items():
+        if title != 'execution_results':
+            ausspur_dict[title] = [ausspuren(state, wires) for wires in ausspur_wires]
+    return ausspur_dict
+
+
 def vector_list_to_ket_expression(vec_list):
     return [vector_to_ket_expression(vec) for vec in vec_list]
+
+
+def snapshots_to_debug_dict(snapshots):
+    debug_dict = dict()
+    for title, state in snapshots.items():
+        if title != 'execution_results':
+            debug_dict[title] = vector_to_ket_expression(state)
+    return debug_dict
 
 
 def snapshots_to_debug_strings(snapshots, wires=None, make_space_at=None, show_zero_rounded=True):
