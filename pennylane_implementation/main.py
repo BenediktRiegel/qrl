@@ -437,8 +437,8 @@ def rot_swap_main():
     gamma = 0.8
     eps = 0.1
     lam = 0.8
-    backend = QuantumBackends.pennylane_lightning_kokkos
-    # backend = QuantumBackends.pennylane_default_qubit
+    # backend = QuantumBackends.pennylane_lightning_kokkos
+    backend = QuantumBackends.pennylane_default_qubit
     shots = 10000
     # shots = None
     # main direction, next are the directions in clockwise order,
@@ -514,19 +514,20 @@ def rot_swap_main():
 def test_rot_swap():
     from loss_function.rot_swap_loss import value_loss
     action_qnn_depth = 4
-    value_qnn_depth = 4
+    value_qnn_depth = 1
     optimizer = OptimizerEnum.adam
     lr = 0.1
     gamma = 0.8
     eps = 0.1
     lam = 0.8
     backend = QuantumBackends.pennylane_default_qubit
-    shots = 10000
+    shots = 100000
     # shots = None
     # main direction, next are the directions in clockwise order,
     # e.g. main direction is right, then slip probs correspond to [right, down, left, up]
     slip_probabilities = [1. / 3., 1. / 3., 0., 1. / 3.]
     # slip_probabilities = [0.5, 0.25, 0., 0.25]
+    # slip_probabilities = [1., 0., 0., 0.]
     map = [
         [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
         [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
@@ -568,5 +569,5 @@ if __name__ == "__main__":
     # rot_main2_2()
     # rot_main5_3()
     # rot_main2_3()
-    # rot_swap_main()
-    test_rot_swap()
+    rot_swap_main()
+    # test_rot_swap()

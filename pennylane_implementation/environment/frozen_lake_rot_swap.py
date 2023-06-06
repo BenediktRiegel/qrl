@@ -1,7 +1,7 @@
 from typing import List
 import numpy as np
 import pennylane as qml
-from .frozen_lake import FrozenField, simple_single_oracle
+from .frozen_lake import FrozenField, simple_single_oracle, cc_simple_single_oracle
 from . import Environment
 from utils import int_to_bitlist, get_bit_by_interpretation, bitlist_to_int
 from q_arithmetic import add_classical_quantum_registers, add_registers
@@ -251,20 +251,24 @@ class FrozenLakeRotSwap:
         :return: none
         """
         oracle_qubit = ancilla_qubits[0]
+        adaptive_ccnot(control_qubits, ancilla_qubits[1:], unclean_qubits, oracle_qubit)
         for r_q in r_qubits:
-            qml.RY(phi=(np.pi / 2.), wires=(r_q,))
+            qml.CRY(phi=np.pi, wires=(oracle_qubit, r_q))
+        adaptive_ccnot(control_qubits, ancilla_qubits[1:], unclean_qubits, oracle_qubit)
         for x_idx, row in enumerate(self.map):
             for y_idx, field in enumerate(row):
                 if field.reward != 0:
-                    simple_single_oracle(
-                        control_qubits + x_qubits + y_qubits,
+                    cc_simple_single_oracle(
+                        control_qubits,
+                        x_qubits + y_qubits,
                         int_to_bitlist(x_idx, len(x_qubits)) + int_to_bitlist(y_idx, len(y_qubits)),
                         ancilla_qubits[1:], unclean_qubits, oracle_qubit
                     )
                     for r_q, fac in zip(r_qubits, factors):
-                        qml.CRY(phi=np.arccos(self.r_m * fac), wires=(oracle_qubit, r_q))
-                    simple_single_oracle(
-                        control_qubits + x_qubits + y_qubits,
+                        qml.CRY(phi=(np.arccos(field.reward * fac) * 2 - np.pi), wires=(oracle_qubit, r_q))
+                    cc_simple_single_oracle(
+                        control_qubits,
+                        x_qubits + y_qubits,
                         int_to_bitlist(x_idx, len(x_qubits)) + int_to_bitlist(y_idx, len(y_qubits)),
                         ancilla_qubits[1:], unclean_qubits, oracle_qubit
                     )
