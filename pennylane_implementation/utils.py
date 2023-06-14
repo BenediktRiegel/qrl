@@ -13,6 +13,8 @@ def bitlist_to_int(bitlist):
 
 
 def int_to_bitlist(num: int, length: int):
+    if length == 0:
+        return []
     binary = bin(num)[2:]
     result = [0]*length
     for i in range(-1, -len(binary)-1, -1):
