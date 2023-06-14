@@ -53,10 +53,12 @@ def train(loss_fn, optimizer, num_iterations, sub_iterations, action_qnn, value_
                     loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=3)
                     losses.append([loss[0].item(), loss[1].item()])
                     loss = loss[itr_type - 1]
-                elif itr_type >= 4:
+                # elif itr_type >= 4:
+                else:
                     loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=itr_type)
                     losses.append([loss.item()])
-                print(f"loss: {loss}")
+                print(f"losses: {losses[-1]}")
+                print(f"loss: {loss.item()}")
 
                 # backpropagation, adjust weights
                 print("Backprop")

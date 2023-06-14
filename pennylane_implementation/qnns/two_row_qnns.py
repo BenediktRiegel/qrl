@@ -280,3 +280,57 @@ class CCRYQNN:
 
     def parameters(self):
         return [self.in_q_parameters, self.out_q_parameters]
+
+
+class RYQNN:
+    def __init__(
+            self, num_input_qubits: int, num_output_qubits: int, depth: int, weight_init: WeightInitEnum
+    ):
+        self.num_input_qubits = num_input_qubits
+        self.depth = depth
+        # weight init
+        if weight_init == WeightInitEnum.standard_normal:
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, num_input_qubits, num_output_qubits)), requires_grad=True)
+            self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, num_output_qubits)), requires_grad=True)
+        elif weight_init == WeightInitEnum.uniform:
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, num_input_qubits, num_output_qubits)), requires_grad=True)
+            self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, num_output_qubits)), requires_grad=True)
+        elif weight_init == WeightInitEnum.zero:
+            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, num_input_qubits, num_output_qubits)), requires_grad=True)
+            self.out_q_parameters = torch.nn.Parameter(torch.zeros((depth, num_output_qubits)), requires_grad=True)
+        else:
+            raise NotImplementedError("Unknown weight init method")
+
+    def layer(
+            self, layer_num: int,
+            input_qubits: List[int], output_qubits: List[int],
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
+    ):
+        for in_qubit, in_q_params in zip(input_qubits, self.in_q_parameters[layer_num]):
+            for out_q, in_param in zip(output_qubits, in_q_params):
+                qml.CRY(phi=in_param, wires=(in_qubit, out_q))
+
+        for out_q, out_param in zip(output_qubits, self.out_q_parameters[layer_num]):
+            qml.RY(phi=out_param, wires=(out_q,))
+
+    def circuit(
+            self,
+            input_qubits: List[int], output_qubits: List[int],
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
+    ):
+        for d in range(self.depth):
+            self.layer(d, input_qubits, output_qubits, ancilla_qubits, unclean_qubits)
+
+    def get_circuit(
+            self,
+            input_qubits: List[int], output_qubits: List[int],
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None
+    ):
+        def circuit():
+            return self.circuit(input_qubits, output_qubits, ancilla_qubits, unclean_qubits)
+
+        return circuit
+
+    def parameters(self):
+        return [self.in_q_parameters, self.out_q_parameters]
+

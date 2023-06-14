@@ -3,7 +3,7 @@ from torch import save
 from optimizer import OptimizerEnum
 from quantum_backends import QuantumBackends
 from train import train, train_with_two_opt
-from qnns import QNN, RotQNN, CCRotQNN, CCRotQNN2, CCRYQNN
+from qnns import QNN, RotQNN, CCRotQNN, CCRotQNN2, CCRYQNN, RYQNN
 from qnns.weight_init import WeightInitEnum
 from environment.frozen_lake import FrozenField, FrozenLake
 # from environment.frozen_lake import FrozenLake2
@@ -440,21 +440,25 @@ def rot_swap_main():
     gamma = 0.9
     eps = 0.1
     lam = 0.8
-    # backend = QuantumBackends.pennylane_lightning_kokkos
+    backend = QuantumBackends.pennylane_lightning_kokkos
     # backend = QuantumBackends.pennylane_default_qubit
-    backend = QuantumBackends.pennylane_lightning_qubit
+    # backend = QuantumBackends.pennylane_lightning_qubit
     shots = 10000
     # shots = None
     # main direction, next are the directions in clockwise order,
     # e.g. main direction is right, then slip probs correspond to [right, down, left, up]
-    slip_probabilities = [1. / 3., 1. / 3., 0., 1. / 3.]
+    # slip_probabilities = [1. / 3., 1. / 3., 0., 1. / 3.]
     # slip_probabilities = [0.5, 0.25, 0., 0.25]
-    # slip_probabilities = [1., 0., 0., 0.]
+    slip_probabilities = [1., 0., 0., 0.]
+    # map = [
+    #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
+    #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
+    #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
+    #     [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
+    # ]
     map = [
-        [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
-        [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
-        [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
-        [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
+        [FrozenField(reward=-1), FrozenField(reward=1)],
+        [FrozenField(reward=-1), FrozenField(reward=1)]
     ]
     print("prepare environment")
     environment = FrozenLakeRotSwap(map, slip_probabilities, r_qubit_is_clean=True)
@@ -473,7 +477,8 @@ def rot_swap_main():
     print(f"{total_num_wires} qubits")
 
     print("prepare qnn")
-    action_qnn = QNN(len(x_qubits), len(action_qubits), action_qnn_depth)
+    # action_qnn = QNN(len(x_qubits), len(action_qubits), action_qnn_depth)
+    action_qnn = RYQNN(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
     value_qnn = CCRYQNN(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
     print(f"value_qnn parameters: ")
     for p in value_qnn.parameters():
@@ -610,7 +615,8 @@ def test_rot_swap_action():
 
     print("prepare qnn")
     action_qnn = QNN(len(x_qubits), len(action_qubits), action_qnn_depth)
-    value_qnn = CCRYQNN(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.zero)
+    # action_qnn = RYQNN(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
+    value_qnn = CCRYQNN(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
 
     loss = action_loss(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits,
