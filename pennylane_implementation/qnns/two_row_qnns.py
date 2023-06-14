@@ -334,3 +334,158 @@ class RYQNN:
     def parameters(self):
         return [self.in_q_parameters, self.out_q_parameters]
 
+
+class RYQNN_D:
+    def __init__(
+            self, num_input_qubits: int, num_output_qubits: int, depth: int, weight_init: WeightInitEnum
+    ):
+        self.num_input_qubits = num_input_qubits
+        self.depth = depth
+        # weight init
+        if weight_init == WeightInitEnum.standard_normal:
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, 2, num_input_qubits, num_output_qubits)), requires_grad=True)
+            # self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, 2, num_output_qubits)), requires_grad=True)
+        elif weight_init == WeightInitEnum.uniform:
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, 2, num_input_qubits, num_output_qubits)), requires_grad=True)
+            # self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, 2, num_output_qubits)), requires_grad=True)
+        elif weight_init == WeightInitEnum.zero:
+            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2, num_input_qubits, num_output_qubits)), requires_grad=True)
+            # self.out_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2, num_output_qubits)), requires_grad=True)
+        else:
+            raise NotImplementedError("Unknown weight init method")
+
+    def layer(
+            self, layer_num: int,
+            input_qubits: List[int], output_qubits: List[int],
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
+    ):
+        for in_qubit, in_q_params in zip(input_qubits, self.in_q_parameters[layer_num, 0]):
+            for out_q, in_param in zip(output_qubits, in_q_params):
+                qml.CRY(phi=in_param, wires=(in_qubit, out_q))
+
+        # for out_q, out_param in zip(output_qubits, self.out_q_parameters[layer_num, 0]):
+        #     qml.RY(phi=out_param, wires=(out_q,))
+
+
+        for in_qubit in input_qubits:
+            qml.PauliX((in_qubit,))
+
+        for in_qubit, in_q_params in zip(input_qubits, self.in_q_parameters[layer_num, 1]):
+            for out_q, in_param in zip(output_qubits, in_q_params):
+                qml.CRY(phi=in_param, wires=(in_qubit, out_q))
+
+        for in_qubit in input_qubits:
+            qml.PauliX((in_qubit,))
+
+        # for out_q, out_param in zip(output_qubits, self.out_q_parameters[layer_num, 1]):
+        #     qml.RY(phi=out_param, wires=(out_q,))
+
+    def circuit(
+            self,
+            input_qubits: List[int], output_qubits: List[int],
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
+    ):
+        for d in range(self.depth):
+            self.layer(d, input_qubits, output_qubits, ancilla_qubits, unclean_qubits)
+
+    def get_circuit(
+            self,
+            input_qubits: List[int], output_qubits: List[int],
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None
+    ):
+        def circuit():
+            return self.circuit(input_qubits, output_qubits, ancilla_qubits, unclean_qubits)
+
+        return circuit
+
+    def parameters(self):
+        return [self.in_q_parameters]   # , self.out_q_parameters]
+
+
+class CCRYQNN_D:
+    def __init__(
+            self, num_input_qubits: int, depth: int, weight_init: WeightInitEnum
+    ):
+        self.num_input_qubits = num_input_qubits
+        self.depth = depth
+        # weight init
+        if weight_init == WeightInitEnum.standard_normal:
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, 2, num_input_qubits)), requires_grad=True)
+            # self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, 2)), requires_grad=True)
+        elif weight_init == WeightInitEnum.uniform:
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, 2, num_input_qubits)), requires_grad=True)
+            # self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, 2)), requires_grad=True)
+        elif weight_init == WeightInitEnum.zero:
+            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2, num_input_qubits)), requires_grad=True)
+            # self.out_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2)), requires_grad=True)
+        else:
+            raise NotImplementedError("Unknown weight init method")
+
+    def layer(
+            self, layer_num: int,
+            control_qubits: List[int],
+            input_qubits: List[int], result_qubit: int,
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
+    ):
+        # value = 1
+        # factor = torch.pi / 2**(len(input_qubits)+1)
+        if len(control_qubits) == 0:
+            for idx, in_qubit in enumerate(input_qubits):
+                qml.CRY(phi=self.in_q_parameters[layer_num, 0, idx], wires=(in_qubit, result_qubit))
+
+            # qml.RY(phi=self.out_q_parameters[layer_num, 0], wires=(result_qubit,))
+
+            for in_qubit in input_qubits:
+                qml.PauliX((in_qubit,))
+            for idx, in_qubit in enumerate(input_qubits):
+                qml.CRY(phi=self.in_q_parameters[layer_num, 1, idx], wires=(in_qubit, result_qubit))
+            for in_qubit in input_qubits:
+                qml.PauliX((in_qubit,))
+
+            # qml.RY(phi=self.out_q_parameters[layer_num, 1], wires=(result_qubit,))
+        else:
+            oracle_qubit = ancilla_qubits[0]
+            ancilla_qubits = ancilla_qubits[1:]
+            for idx, in_qubit in enumerate(input_qubits):
+                adaptive_ccnot(control_qubits + [in_qubit], ancilla_qubits, unclean_qubits, oracle_qubit)
+                qml.CRY(phi=self.in_q_parameters[layer_num, 0, idx], wires=(oracle_qubit, result_qubit))
+                adaptive_ccnot(control_qubits + [in_qubit], ancilla_qubits, unclean_qubits, oracle_qubit)
+
+            # adaptive_ccnot(control_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
+            # qml.CRY(phi=self.out_q_parameters[layer_num, 0], wires=(oracle_qubit, result_qubit))
+            # adaptive_ccnot(control_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
+
+            for in_qubit in input_qubits:
+                qml.PauliX((in_qubit,))
+            for idx, in_qubit in enumerate(input_qubits):
+                adaptive_ccnot(control_qubits + [in_qubit], ancilla_qubits, unclean_qubits, oracle_qubit)
+                qml.CRY(phi=self.in_q_parameters[layer_num, 1, idx], wires=(oracle_qubit, result_qubit))
+                adaptive_ccnot(control_qubits + [in_qubit], ancilla_qubits, unclean_qubits, oracle_qubit)
+            for in_qubit in input_qubits:
+                qml.PauliX((in_qubit,))
+
+            # adaptive_ccnot(control_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
+            # qml.CRY(phi=self.out_q_parameters[layer_num, 1], wires=(oracle_qubit, result_qubit))
+            # adaptive_ccnot(control_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
+
+    def circuit(
+            self,
+            input_qubits: List[int], result_qubit: int,
+            control_qubits: List[int] = None, ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
+    ):
+        control_qubits = [] if control_qubits is None else control_qubits
+        for d in range(self.depth):
+            self.layer(d, control_qubits, input_qubits, result_qubit, ancilla_qubits, unclean_qubits)
+
+    def get_circuit(
+            self,
+            input_qubits: List[int], result_qubit: int,
+            control_qubits: List[int] = None, ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None
+    ):
+        def circuit():
+            return self.circuit(input_qubits, result_qubit, control_qubits, ancilla_qubits, unclean_qubits)
+
+        return circuit
+
+    def parameters(self):
+        return [self.in_q_parameters]   #, self.out_q_parameters]

@@ -163,9 +163,9 @@ def plot_animated_frozen_lake(environment, frames):
     heatmap = np.empty((2 * len(environment.map), 2 * len(environment.map[0])))
     for y in range(len(environment.map)):
         for x in range(len(environment.map[0])):
-            heatmap[2 * y, 2 * x] = environment.map[x][y].reward
-            heatmap[2 * y, 2 * x] = environment.map[x][y].reward
-            heatmap[2 * y, 2 * x] = environment.map[x][y].reward
+            heatmap[2 * y, 2 * x] = environment.map[y][x].reward
+            heatmap[2 * y, 2 * x] = environment.map[y][x].reward
+            heatmap[2 * y, 2 * x] = environment.map[y][x].reward
             heatmap[2 * y + 1, 2 * x + 1] = environment.map[y][x].reward
     lake_fig = go.Figure(
         # data=frames[0]["data"]

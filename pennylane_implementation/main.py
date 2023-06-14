@@ -3,7 +3,7 @@ from torch import save
 from optimizer import OptimizerEnum
 from quantum_backends import QuantumBackends
 from train import train_with_two_opt
-from qnns import CCRYQNN, RYQNN
+from qnns import CCRYQNN, RYQNN, CCRYQNN_D, RYQNN_D
 from qnns.weight_init import WeightInitEnum
 from environment.frozen_lake import FrozenField
 from environment.frozen_lake_rot_swap import FrozenLakeRotSwap
@@ -13,9 +13,10 @@ from visualize import get_frozen_lake_frame, plot_animated_frozen_lake, plot_los
 
 
 def rot_swap_main():
-    num_iterations = 40
+    num_iterations = 1
     # 1: action, 2: value, 3: return both, 4: lam * action + value
-    sub_iterations = [(20, 2), (35, 1)]
+    # sub_iterations = [(50, 2), (50, 1)]
+    sub_iterations = [(100, 2)]
     # sub_iterations = [(20, 1)]
     # sub_iterations = [(50, 4)]
     action_qnn_depth = 4
@@ -24,7 +25,7 @@ def rot_swap_main():
     action_optimizer = OptimizerEnum.adam
     value_lr = 0.1
     action_lr = 0.01
-    gamma = 0.9
+    gamma = 0.6
     eps = 0.1
     lam = 0.8
     backend = QuantumBackends.pennylane_lightning_kokkos
@@ -44,8 +45,8 @@ def rot_swap_main():
     #     [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
     # ]
     map = [
-        [FrozenField(reward=-1), FrozenField(reward=1)],
-        [FrozenField(reward=-1), FrozenField(reward=1)]
+        [FrozenField(reward=-1), FrozenField(reward=0.5)],
+        # [FrozenField(reward=-1), FrozenField(reward=1)]
     ]
     print("prepare environment")
     environment = FrozenLakeRotSwap(map, slip_probabilities, r_qubit_is_clean=True)
@@ -65,8 +66,8 @@ def rot_swap_main():
 
     print("prepare qnn")
     # action_qnn = QNN(len(x_qubits), len(action_qubits), action_qnn_depth)
-    action_qnn = RYQNN(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
-    value_qnn = CCRYQNN(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
+    action_qnn = RYQNN_D(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.zero)
+    value_qnn = CCRYQNN_D(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.zero)
     print(f"value_qnn parameters: ")
     for p in value_qnn.parameters():
         print(p)
