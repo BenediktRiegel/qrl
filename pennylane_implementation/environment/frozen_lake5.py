@@ -19,14 +19,14 @@ class FrozenLake5(Environment):
         # possible edge cases
         self.possible_edge_cases = self.get_possible_edge_cases()
         x_ceil_log2 = int(np.ceil(np.log2(len(map[0]))))
-        self.x_xor_bits = [1 if el == 0 else 0 for el in int_to_bitlist(len(map[0]) - 1, x_ceil_log2)]
+        self.x_xor_bits = [1 if el == 0 else 0 for el in int_to_bitlist(len(map[0]) - 1, x_ceil_log2)] if len(map) > 1 else []
         y_ceil_log2 = int(np.ceil(np.log2(len(map))))
-        self.y_xor_bits = [1 if el == 0 else 0 for el in int_to_bitlist(len(map) - 1, y_ceil_log2)]
+        self.y_xor_bits = [1 if el == 0 else 0 for el in int_to_bitlist(len(map) - 1, y_ceil_log2)] if len(map) > 1 else []
         do_nothing = [0] * (x_ceil_log2 + y_ceil_log2)
-        go_right = [0] * (x_ceil_log2 - 1) + [1] + [0] * y_ceil_log2
+        go_right = (([0] * (x_ceil_log2 - 1) + [1]) if len(map[0]) > 1 else []) + [0] * y_ceil_log2
         go_down = [0] * x_ceil_log2 + [1] * y_ceil_log2
         go_left = [1] * x_ceil_log2 + [0] * y_ceil_log2
-        go_up = [0] * x_ceil_log2 + [0] * (y_ceil_log2 - 1) + [1]
+        go_up = [0] * x_ceil_log2 + (([0] * (y_ceil_log2 - 1) + [1]) if len(map) > 1 else [])
         self.moves = np.array([go_right, go_down, go_left, go_up, do_nothing])
         self.slip_probabilities = np.array(slip_probabilities)
 

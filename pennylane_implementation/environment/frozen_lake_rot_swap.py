@@ -26,15 +26,16 @@ class FrozenLakeRotSwap:
         # possible edge cases
         self.possible_edge_cases = self.get_possible_edge_cases()
         x_ceil_log2 = int(np.ceil(np.log2(len(map[0]))))
-        self.x_xor_bits = [0 if el == 1 else 1 for el in int_to_bitlist(len(map[0]) - 1, x_ceil_log2)]
+        self.x_xor_bits = [0 if el == 1 else 1 for el in int_to_bitlist(len(map[0]) - 1, x_ceil_log2)] if len(map[0]) > 1 else []
         y_ceil_log2 = int(np.ceil(np.log2(len(map))))
-        self.y_xor_bits = [0 if el == 1 else 1 for el in int_to_bitlist(len(map) - 1, y_ceil_log2)]
+        self.y_xor_bits = [0 if el == 1 else 1 for el in int_to_bitlist(len(map) - 1, y_ceil_log2)] if len(map) > 1 else []
         do_nothing = [0] * (x_ceil_log2 + y_ceil_log2)
-        go_right = [0] * (x_ceil_log2 - 1) + [1] + [0] * y_ceil_log2
+        go_right = [0] * max((x_ceil_log2 - 1), 0) + [1] + [0] * y_ceil_log2
         go_down = [0] * x_ceil_log2 + [1] * y_ceil_log2
         go_left = [1] * x_ceil_log2 + [0] * y_ceil_log2
-        go_up = [0] * x_ceil_log2 + [0] * (y_ceil_log2 - 1) + [1]
+        go_up = [0] * x_ceil_log2 + [0] * max((y_ceil_log2 - 1), 0)
         self.moves = np.array([go_right, go_down, go_left, go_up, do_nothing])
+        print(f"self.moves: {self.moves}")
         self.slip_probabilities = np.array(slip_probabilities)
 
         self.r_qubit_is_clean = r_qubit_is_clean
@@ -122,7 +123,7 @@ class FrozenLakeRotSwap:
     ):
         for y_idx, row in enumerate(self.map):
             for x_idx, field in enumerate(row):
-                if field.end == 1:
+                if field.end:
                     simple_single_oracle(
                         x_qubits + y_qubits,
                         int_to_bitlist(x_idx, len(x_qubits)) + int_to_bitlist(y_idx, len(y_qubits)),
@@ -165,6 +166,7 @@ class FrozenLakeRotSwap:
                 action_qubits + [e_qubit] + unclean_qubits,
                 end_state_qubit,
             )
+            qml.PauliX((end_state_qubit,))
 
             # QAM(
             #     self.moves,
@@ -176,12 +178,18 @@ class FrozenLakeRotSwap:
             # ).circuit()
             move_vec = np.zeros((1, 2**len(self.moves[0])))
             for move, amp in zip(self.moves, modified_slip_amps):
-                move_vec[0, bitlist_to_int(move)] = amp
+                move_vec[0, bitlist_to_int(move)] += amp
+            temp = [e_qubit, end_state_qubit] + action_qubits
+            temp.sort()
+            qml.Snapshot(f"direction: {action}, edge case: {edge_case}, before state prep {move_vec} on qubits {next_x_qubits + next_y_qubits} controlled by qubits {temp}")
             LittleTreeLoader(
                 move_vec, next_x_qubits + next_y_qubits, ancilla_qubits, x_qubits + y_qubits + unclean_qubits
             ).circuit(control_qubits=[e_qubit, end_state_qubit] + action_qubits)
 
+            qml.Snapshot(f"direction: {action}, edge case: {edge_case}, prepared state {move_vec} on qubits {next_x_qubits + next_y_qubits} controlled by qubits {temp}")
+
             # Undo end state check
+            qml.PauliX((end_state_qubit,))
             self.check_end_state(
                 x_qubits, y_qubits,
                 ancilla_qubits,
@@ -216,6 +224,8 @@ class FrozenLakeRotSwap:
         self.move_in_direction(slip_probs, x_qubits, y_qubits, next_x_qubits, next_y_qubits, action_qubits, [1, 1],
                                ancilla_qubits, unclean_qubits)
 
+        qml.Snapshot("next_qubits prepared")
+
         # Add state
         add_registers(
             x_qubits, next_x_qubits,
@@ -229,6 +239,8 @@ class FrozenLakeRotSwap:
             x_qubits + next_x_qubits + action_qubits + unclean_qubits,
             indicator_is_zero=True
         )
+
+        qml.Snapshot("Added next_qubits and state_qubits")
 
     def compute_rewards(
             self, control_qubits: List[int], x_qubits: List[int], y_qubits: List[int],

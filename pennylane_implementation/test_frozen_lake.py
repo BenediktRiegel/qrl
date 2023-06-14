@@ -4,10 +4,8 @@ import pennylane as qml
 from utils import int_to_bitlist, bitlist_to_int
 from quantum_backends import QuantumBackends
 from wire_utils import get_wires
-from environment.frozen_lake import FrozenField, FrozenLake, FrozenLake2
-from environment.frozen_lake3 import FrozenLake3
-from environment.frozen_lake4 import FrozenLake4
-from environment.frozen_lake5 import FrozenLake5
+from environment.frozen_lake import FrozenField
+from environment.frozen_lake_rot_swap import FrozenLakeRotSwap
 from debug_utils import snapshots_to_prob_histogram, snapshots_to_probability_strings
 
 
@@ -50,10 +48,12 @@ def test_state_action(environment, state, action, log_cols, log_rows):
     backend = QuantumBackends.pennylane_default_qubit
     shots = None
 
-    wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 1, 5])
+    wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 1, 7])
     x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, r_qubit, ancilla_qubits = wires
     r_qubit = r_qubit[0]
     backend = backend.get_pennylane_backend("", "", total_num_wires, shots)
+
+    print(f"x_qubits: {x_qubits}, y_qubits: {y_qubits}, action_qubits: {action_qubits}, next_x_qubits: {next_x_qubits}, next_y_qubits: {next_y_qubits}, r_qubit: {r_qubit}, ancilla_qubits: {ancilla_qubits}")
 
     def circuit():
         for q, s in zip(x_qubits+y_qubits, state):
@@ -62,13 +62,13 @@ def test_state_action(environment, state, action, log_cols, log_rows):
         for q, a in zip(action_qubits, action):
             if a == 1:
                 qml.PauliX((q,))
-        environment.circuit(x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, r_qubit, ancilla_qubits, [])
+        environment.circuit(x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, [], [r_qubit], [1.], ancilla_qubits, [])
         qml.Snapshot("result")
 
         return qml.probs(x_qubits+y_qubits+action_qubits+next_x_qubits+next_y_qubits+[r_qubit])
 
     snaps = qml.snapshots(qml.QNode(circuit, backend))()
-    prob_histogram = snapshots_to_prob_histogram(snaps, x_qubits+y_qubits+action_qubits+next_x_qubits+next_y_qubits+[r_qubit]+ancilla_qubits)
+    prob_histogram = snapshots_to_prob_histogram({"result": snaps["result"]}, x_qubits+y_qubits+action_qubits+next_x_qubits+next_y_qubits+[r_qubit]+ancilla_qubits)
     pruned_probs = [dict() for _ in list(prob_histogram.values())[0]]
     for key, value in prob_histogram.items():
         # for idx, el in enumerate(value):
@@ -87,27 +87,31 @@ def test_state_action(environment, state, action, log_cols, log_rows):
         print(s)
     print()
 
-
 def main():
     # shots = None
     # main direction, next are the directions in clockwise order,
     # e.g. main direction is right, then slip probs correspond to [right, down, left, up]
-    slip_probabilities = [1. / 3., 1. / 3., 0., 1. / 3.]
+    # slip_probabilities = [1. / 3., 1. / 3., 0., 1. / 3.]
     # slip_probabilities = [0.5, 0.25, 0., 0.25]
-    map = [
-        [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
-        [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
-        [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
-        [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
-    ]
+    slip_probabilities = [1., 0., 0., 0.]
+    # map = [
+    #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
+    #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
+    #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
+    #     [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
+    # ]
+    # map = [
+    #     [FrozenField(reward=-1), FrozenField(reward=1)] # , FrozenField(reward=1)],
+    # ]
+    map = [[FrozenField.get_ice(), FrozenField.get_ice()]]
     print("prepare environment")
-    environment = FrozenLake5(map, slip_probabilities, r_m=max(abs([[el.reward for el in row] for row in map])), r_qubit_is_clean=True)
+    environment = FrozenLakeRotSwap(map, slip_probabilities, r_qubit_is_clean=True)
 
     log_rows = int(ceil(log2(len(environment.map))))
     log_cols = int(ceil(log2(len(environment.map[0]))))
 
-    for y in [0]: # range(len(map)):
-        for x in [0]: # range(len(map[0])):
+    for y in range(len(map)):
+        for x in range(len(map[0])):
             state = int_to_bitlist(x, log_cols) + int_to_bitlist(y, log_rows)
             for a in [0, 2]: # range(4):
                 action = int_to_bitlist(a, 2)
