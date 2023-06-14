@@ -161,6 +161,7 @@ def train_with_two_opt(loss_fn, value_optimizer, action_optimizer, num_iteration
                 elif itr_type >= 4:
                     loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=itr_type)
                     losses.append([loss.item()])
+                print(f"losses: {losses[-1]}")
                 print(f"loss: {loss}")
 
                 # backpropagation, adjust weights
