@@ -13,25 +13,25 @@ from visualize import get_frozen_lake_frame, plot_animated_frozen_lake, plot_los
 
 
 def rot_swap_main():
-    num_iterations = 1
+    num_iterations = 10
     # 1: action, 2: value, 3: return both, 4: lam * action + value
     # sub_iterations = [(50, 2), (50, 1)]
-    sub_iterations = [(100, 2)]
-    # sub_iterations = [(20, 1)]
+    # sub_iterations = [(100, 2), (100, 1)]
+    sub_iterations = [(100, 2), (100, 1)]
     # sub_iterations = [(50, 4)]
     action_qnn_depth = 4
-    value_qnn_depth = 1
+    value_qnn_depth = 4
     value_optimizer = OptimizerEnum.adam
     action_optimizer = OptimizerEnum.adam
     value_lr = 0.1
-    action_lr = 0.01
-    gamma = 0.6
-    eps = 0.1
+    action_lr = 0.1
+    gamma = 0.5
+    eps = 0.0
     lam = 0.8
-    backend = QuantumBackends.pennylane_lightning_kokkos
-    # backend = QuantumBackends.pennylane_default_qubit
+    # backend = QuantumBackends.pennylane_lightning_kokkos
+    backend = QuantumBackends.pennylane_default_qubit
     # backend = QuantumBackends.pennylane_lightning_qubit
-    shots = 10000
+    shots = None
     # shots = None
     # main direction, next are the directions in clockwise order,
     # e.g. main direction is right, then slip probs correspond to [right, down, left, up]
@@ -66,8 +66,8 @@ def rot_swap_main():
 
     print("prepare qnn")
     # action_qnn = QNN(len(x_qubits), len(action_qubits), action_qnn_depth)
-    action_qnn = RYQNN_D(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.zero)
-    value_qnn = CCRYQNN_D(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.zero)
+    action_qnn = RYQNN_D(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
+    value_qnn = CCRYQNN_D(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
     print(f"value_qnn parameters: ")
     for p in value_qnn.parameters():
         print(p)
@@ -99,7 +99,7 @@ def rot_swap_main():
     for i, param in enumerate(value_qnn.parameters()):
         save(param, f"./value_qnn/param{i}")
 
-    fig = plot_animated_frozen_lake(environment, frames)
+    fig = plot_animated_frozen_lake(environment, frames, gamma)
     with open("plots/fig.html", "w", encoding="utf-8") as f:
         f.write(fig.to_html())
         f.close()

@@ -157,7 +157,7 @@ def get_frozen_lake_frame(environment, action_qnn, value_qnn, num_x_qubits, num_
     return value_frame
 
 
-def plot_animated_frozen_lake(environment, frames):
+def plot_animated_frozen_lake(environment, frames, gamma):
     for idx, frame in enumerate(frames):
         frame["name"] = idx
     heatmap = np.empty((2 * len(environment.map), 2 * len(environment.map[0])))
@@ -173,8 +173,8 @@ def plot_animated_frozen_lake(environment, frames):
             z=heatmap,
             x=np.array(list(range(len(heatmap[0]))), dtype=float) / 2. - 0.25,
             y=np.array(list(range(len(heatmap))), dtype=float) / 2. - 0.25,
-            zmin=-2,
-            zmax=2,
+            zmin=-environment.r_m / (1 - gamma),
+            zmax=environment.r_m / (1 - gamma),
             showscale=True,
             colorscale=px.colors.sequential.Viridis,
             hoverinfo="all",

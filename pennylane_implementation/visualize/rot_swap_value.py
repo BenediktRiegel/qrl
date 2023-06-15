@@ -178,6 +178,7 @@ def plot_animated_frozen_lake(environment, frames, gamma):
             heatmap[2 * y, 2 * x + 1] = environment.map[y][x].reward
             heatmap[2 * y + 1, 2 * x] = environment.map[y][x].reward
             heatmap[2 * y + 1, 2 * x + 1] = environment.map[y][x].reward
+    print(f"heatmap zmin={-environment.r_m / (1 - gamma)}, zmax={environment.r_m / (1 - gamma)}")
     lake_fig = go.Figure(
         # data=frames[0]["data"]
         data=go.Heatmap(

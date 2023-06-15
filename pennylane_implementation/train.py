@@ -147,6 +147,12 @@ def train_with_two_opt(loss_fn, value_optimizer, action_optimizer, num_iteration
                     # zero gradients
                     value_optimizer.zero_grad(set_to_none=True)
 
+
+                # for parameter in action_qnn.parameters():
+                #     parameter.requires_grad = False
+                # for parameter in value_qnn.parameters():
+                #     parameter.requires_grad = False
+
                 print(
                     f"Start iterations {i + 1}/{num_iterations}, type_itr: {type_itr + 1}/{len(sub_iterations)}, sub_iteration: {sub_i + 1}/{num_sub_itr}, l_type: {itr_type}")
 
@@ -168,8 +174,6 @@ def train_with_two_opt(loss_fn, value_optimizer, action_optimizer, num_iteration
                 print("Backprop")
                 loss.backward()
 
-                # print(f"value_qnn.out_q_parameters.grad:\n{value_qnn.out_q_parameters.grad}")
-
                 print("Optimize")
                 if itr_type == 1:
                     action_optimizer.step()
@@ -189,16 +193,6 @@ def train_with_two_opt(loss_fn, value_optimizer, action_optimizer, num_iteration
                     for parameter in value_qnn.parameters():
                         parameter.requires_grad = True
                 elif itr_type == 2:
-                    # for parameter in value_qnn.parameters():
-                    #     parameter.requires_grad = False
-                    # sum = 0
-                    # for v in value_qnn.out_q_parameters:
-                    #     sum += v.item()
-                    # sum /= 2.
-                    # sum = cos(sum) * loss_fn_params["environment"].r_m / (1-loss_fn_params["gamma"])
-                    # print(f"value of [0,0]: {sum}")
-                    # for parameter in value_qnn.parameters():
-                    #     parameter.requires_grad = True
                     for parameter in action_qnn.parameters():
                         parameter.requires_grad = True
 
