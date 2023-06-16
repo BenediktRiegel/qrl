@@ -41,7 +41,7 @@ class FrozenField:
 
     @staticmethod
     def get_ice():
-        return FrozenField(reward=0, end=True)
+        return FrozenField(reward=0, end=False)
 
 
 class FrozenLake(Environment):

@@ -3,6 +3,8 @@ from typing import List
 from ccnot import adaptive_ccnot
 import torch
 from qnns.weight_init import WeightInitEnum
+from utils import int_to_bitlist
+from simple_oracle import cc_simple_single_oracle, simple_single_oracle
 
 
 class QNN:
@@ -168,7 +170,7 @@ class CCRotQNN2:
             ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
     ):
         value = 1
-        factor = torch.pi / 2**(len(input_qubits)+1)
+        factor = torch.pi / 2 ** (len(input_qubits) + 1)
         if len(control_qubits) == 0:
             for in_qubit in input_qubits:
                 qml.CRX(phi=value * factor, wires=(in_qubit, result_qubit))
@@ -219,10 +221,12 @@ class CCRYQNN:
         self.depth = depth
         # weight init
         if weight_init == WeightInitEnum.standard_normal:
-            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, num_input_qubits)), requires_grad=True)
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, num_input_qubits)),
+                                                      requires_grad=True)
             self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth,)), requires_grad=True)
         elif weight_init == WeightInitEnum.uniform:
-            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, num_input_qubits)), requires_grad=True)
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, num_input_qubits)),
+                                                      requires_grad=True)
             self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth,)), requires_grad=True)
         elif weight_init == WeightInitEnum.zero:
             self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, num_input_qubits)), requires_grad=True)
@@ -290,13 +294,18 @@ class RYQNN:
         self.depth = depth
         # weight init
         if weight_init == WeightInitEnum.standard_normal:
-            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, num_input_qubits, num_output_qubits)), requires_grad=True)
-            self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, num_output_qubits)), requires_grad=True)
+            self.in_q_parameters = torch.nn.Parameter(
+                torch.pi * torch.randn((depth, num_input_qubits, num_output_qubits)), requires_grad=True)
+            self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, num_output_qubits)),
+                                                       requires_grad=True)
         elif weight_init == WeightInitEnum.uniform:
-            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, num_input_qubits, num_output_qubits)), requires_grad=True)
-            self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, num_output_qubits)), requires_grad=True)
+            self.in_q_parameters = torch.nn.Parameter(
+                torch.pi * torch.rand((depth, num_input_qubits, num_output_qubits)), requires_grad=True)
+            self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, num_output_qubits)),
+                                                       requires_grad=True)
         elif weight_init == WeightInitEnum.zero:
-            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, num_input_qubits, num_output_qubits)), requires_grad=True)
+            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, num_input_qubits, num_output_qubits)),
+                                                      requires_grad=True)
             self.out_q_parameters = torch.nn.Parameter(torch.zeros((depth, num_output_qubits)), requires_grad=True)
         else:
             raise NotImplementedError("Unknown weight init method")
@@ -343,13 +352,16 @@ class RYQNN_D:
         self.depth = depth
         # weight init
         if weight_init == WeightInitEnum.standard_normal:
-            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, 2, num_input_qubits, num_output_qubits)), requires_grad=True)
+            self.in_q_parameters = torch.nn.Parameter(
+                torch.pi * torch.randn((depth, 2, num_input_qubits, num_output_qubits)), requires_grad=True)
             # self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, 2, num_output_qubits)), requires_grad=True)
         elif weight_init == WeightInitEnum.uniform:
-            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, 2, num_input_qubits, num_output_qubits)), requires_grad=True)
+            self.in_q_parameters = torch.nn.Parameter(
+                torch.pi * torch.rand((depth, 2, num_input_qubits, num_output_qubits)), requires_grad=True)
             # self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, 2, num_output_qubits)), requires_grad=True)
         elif weight_init == WeightInitEnum.zero:
-            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2, num_input_qubits, num_output_qubits)), requires_grad=True)
+            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2, num_input_qubits, num_output_qubits)),
+                                                      requires_grad=True)
             # self.out_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2, num_output_qubits)), requires_grad=True)
         else:
             raise NotImplementedError("Unknown weight init method")
@@ -365,7 +377,6 @@ class RYQNN_D:
 
         # for out_q, out_param in zip(output_qubits, self.out_q_parameters[layer_num, 0]):
         #     qml.RY(phi=out_param, wires=(out_q,))
-
 
         for in_qubit in input_qubits:
             qml.PauliX((in_qubit,))
@@ -399,7 +410,7 @@ class RYQNN_D:
         return circuit
 
     def parameters(self):
-        return [self.in_q_parameters]   # , self.out_q_parameters]
+        return [self.in_q_parameters]  # , self.out_q_parameters]
 
 
 class CCRYQNN_D:
@@ -410,10 +421,12 @@ class CCRYQNN_D:
         self.depth = depth
         # weight init
         if weight_init == WeightInitEnum.standard_normal:
-            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, 2, num_input_qubits)), requires_grad=True)
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, 2, num_input_qubits)),
+                                                      requires_grad=True)
             # self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, 2)), requires_grad=True)
         elif weight_init == WeightInitEnum.uniform:
-            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, 2, num_input_qubits)), requires_grad=True)
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, 2, num_input_qubits)),
+                                                      requires_grad=True)
             # self.out_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, 2)), requires_grad=True)
         elif weight_init == WeightInitEnum.zero:
             self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2, num_input_qubits)), requires_grad=True)
@@ -488,4 +501,116 @@ class CCRYQNN_D:
         return circuit
 
     def parameters(self):
-        return [self.in_q_parameters]   #, self.out_q_parameters]
+        return [self.in_q_parameters]  # , self.out_q_parameters]
+
+
+class CCRYQNN_Excessive:
+    def __init__(
+            self, num_input_qubits: int, depth: int, weight_init: WeightInitEnum
+    ):
+        self.num_input_qubits = num_input_qubits
+        self.depth = depth
+        # weight init
+        if weight_init == WeightInitEnum.standard_normal:
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.randn((depth, 2 ** num_input_qubits)),
+                                                      requires_grad=True)
+        elif weight_init == WeightInitEnum.uniform:
+            self.in_q_parameters = torch.nn.Parameter(torch.pi * torch.rand((depth, 2 ** num_input_qubits)),
+                                                      requires_grad=True)
+        elif weight_init == WeightInitEnum.zero:
+            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2 ** num_input_qubits)), requires_grad=True)
+        else:
+            raise NotImplementedError("Unknown weight init method")
+
+    def layer(
+            self, layer_num: int,
+            control_qubits: List[int],
+            input_qubits: List[int], result_qubit: int,
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
+    ):
+        for idx, q_param in enumerate(self.in_q_parameters[layer_num]):
+            bits = int_to_bitlist(idx, self.num_input_qubits)
+            cc_simple_single_oracle(control_qubits, input_qubits, bits, ancilla_qubits[1:], unclean_qubits,
+                                    ancilla_qubits[0])
+            qml.CRY(phi=q_param, wires=(ancilla_qubits[0], result_qubit))
+            cc_simple_single_oracle(control_qubits, input_qubits, bits, ancilla_qubits[1:], unclean_qubits,
+                                    ancilla_qubits[0])
+
+    def circuit(
+            self,
+            input_qubits: List[int], result_qubit: int,
+            control_qubits: List[int] = None, ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
+    ):
+        control_qubits = [] if control_qubits is None else control_qubits
+        ancilla_qubits = [] if ancilla_qubits is None else ancilla_qubits
+        unclean_qubits = [] if unclean_qubits is None else unclean_qubits
+        for d in range(self.depth):
+            self.layer(d, control_qubits, input_qubits, result_qubit, ancilla_qubits, unclean_qubits)
+
+    def get_circuit(
+            self,
+            input_qubits: List[int], result_qubit: int,
+            control_qubits: List[int] = None, ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None
+    ):
+        def circuit():
+            return self.circuit(input_qubits, result_qubit, control_qubits, ancilla_qubits, unclean_qubits)
+
+        return circuit
+
+    def parameters(self):
+        return [self.in_q_parameters]
+
+
+class RYQNN_Excessive:
+    def __init__(
+            self, num_input_qubits: int, num_output_qubits: int, depth: int, weight_init: WeightInitEnum
+    ):
+        self.num_input_qubits = num_input_qubits
+        self.depth = depth
+        # weight init
+        if weight_init == WeightInitEnum.standard_normal:
+            self.in_q_parameters = torch.nn.Parameter(
+                torch.pi * torch.randn((depth, 2 ** num_input_qubits, num_output_qubits)), requires_grad=True)
+        elif weight_init == WeightInitEnum.uniform:
+            self.in_q_parameters = torch.nn.Parameter(
+                torch.pi * torch.rand((depth, 2 ** num_input_qubits, num_output_qubits)), requires_grad=True)
+        elif weight_init == WeightInitEnum.zero:
+            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2 ** num_input_qubits, num_output_qubits)),
+                                                      requires_grad=True)
+        else:
+            raise NotImplementedError("Unknown weight init method")
+
+    def layer(
+            self, layer_num: int,
+            input_qubits: List[int], output_qubits: List[int],
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
+    ):
+        for idx, q_out_params in enumerate(self.in_q_parameters[layer_num]):
+            bits = int_to_bitlist(idx, self.num_input_qubits)
+            simple_single_oracle(input_qubits, bits, ancilla_qubits[1:], unclean_qubits, ancilla_qubits[0])
+            for out_q, q_param in zip(output_qubits, q_out_params):
+                qml.CRY(phi=q_param, wires=(ancilla_qubits[0], out_q))
+            simple_single_oracle(input_qubits, bits, ancilla_qubits[1:], unclean_qubits, ancilla_qubits[0])
+
+    def circuit(
+            self,
+            input_qubits: List[int], output_qubits: List[int],
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None,
+    ):
+        ancilla_qubits = [] if ancilla_qubits is None else ancilla_qubits
+        unclean_qubits = [] if unclean_qubits is None else unclean_qubits
+        for d in range(self.depth):
+            self.layer(d, input_qubits, output_qubits, ancilla_qubits, unclean_qubits)
+
+    def get_circuit(
+            self,
+            input_qubits: List[int], output_qubits: List[int],
+            ancilla_qubits: List[int] = None, unclean_qubits: List[int] = None
+    ):
+        def circuit():
+            return self.circuit(input_qubits, output_qubits, ancilla_qubits, unclean_qubits)
+
+        return circuit
+
+    def parameters(self):
+        return [self.in_q_parameters]

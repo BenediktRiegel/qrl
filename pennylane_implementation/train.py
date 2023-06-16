@@ -79,16 +79,6 @@ def train(loss_fn, optimizer, num_iterations, sub_iterations, action_qnn, value_
                     for parameter in value_qnn.parameters():
                         parameter.requires_grad = True
                 elif itr_type == 2:
-                    for parameter in value_qnn.parameters():
-                        parameter.requires_grad = False
-                    sum = 0
-                    for v in value_qnn.out_q_parameters:
-                        sum += v.item()
-                    sum /= 2.
-                    sum = cos(sum) * loss_fn_params["environment"].r_m / (1-loss_fn_params["gamma"])
-                    print(f"value of [0,0]: {sum}")
-                    for parameter in value_qnn.parameters():
-                        parameter.requires_grad = True
                     for parameter in action_qnn.parameters():
                         parameter.requires_grad = True
 

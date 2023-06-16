@@ -47,7 +47,7 @@ def value_loss_circuit(
             ancilla_wires=ancilla_qubits,
             unclean_wires=unclean_qubits + x_qubits + y_qubits + next_x_qubits + next_y_qubits
         ).circuit()
-    action_qnn.circuit(x_qubits + y_qubits, action_qubits)
+    action_qnn.circuit(x_qubits + y_qubits, action_qubits, ancilla_qubits=ancilla_qubits, unclean_qubits=unclean_qubits)
 
     # QAM(np.array([[1, 1], [0, 1], [1, 0]]), [], value_indices_qubits, ancilla_qubits, unclean_qubits)
     LittleTreeLoader(
@@ -106,6 +106,7 @@ def value_loss(
         backend,
         gamma: float = 0.9, eps: float = 0.0,
         unclean_qubits: List[int] = None,
+        precise: bool = False,
         snaps: bool = False,
 ):
     unclean_qubits = [] if unclean_qubits is None else unclean_qubits
@@ -136,12 +137,14 @@ def value_loss(
         return qml.probs(wires=loss_qubit)
 
     # backprop, parameter-shift
-    # result = qml.QNode(circuit, backend, interface="torch", diff_method="best")()
-    qml.QNode(circuit, backend, interface="torch", diff_method="best")()
+    if precise:
+        qml.QNode(circuit, backend, interface="torch", diff_method="best")()
 
-    result = torch.zeros(2)
-    for amp, ket in vector_to_ket_expression(backend._state.flatten()):
-        result[int(ket[loss_qubit])] += torch.square(torch.abs(amp))
+        result = torch.zeros(2)
+        for amp, ket in vector_to_ket_expression(backend._state.flatten()):
+            result[int(ket[loss_qubit])] += torch.square(torch.abs(amp))
+    else:
+        result = qml.QNode(circuit, backend, interface="torch", diff_method="best")()
 
 
     r_max = environment.r_m
@@ -226,7 +229,7 @@ def action_loss_circuit(
 
     ancilla_qubits = ancilla_qubits[len(action_qubits) + 2:]    # Remove action qubits, loss qubit and value qubit
     # Determine next action
-    action_qnn.circuit(x_qubits + y_qubits, action_qubits)
+    action_qnn.circuit(x_qubits + y_qubits, action_qubits, ancilla_qubits=ancilla_qubits, unclean_qubits=unclean_qubits)
 
     # Start swap test
     qml.Hadamard((loss_qubit,))
@@ -288,6 +291,7 @@ def action_loss(
         backend,
         gamma: float = 0.9,
         unclean_qubits: List[int] = None,
+        precise:bool = False,
         snaps=False,
 ):
     gradient_free_value_qnn = deepcopy(value_qnn)
@@ -313,13 +317,14 @@ def action_loss(
         return qml.probs(wires=loss_qubit)
 
     # backprop, parameter-shift
-    # result = qml.QNode(circuit, backend, interface="torch", diff_method="best")()
+    if precise:
+        qml.QNode(circuit, backend, interface="torch", diff_method="best")()
 
-    qml.QNode(circuit, backend, interface="torch", diff_method="best")()
-
-    result = torch.zeros(2)
-    for amp, ket in vector_to_ket_expression(backend._state.flatten()):
-        result[int(ket[loss_qubit])] += torch.square(torch.abs(amp))
+        result = torch.zeros(2)
+        for amp, ket in vector_to_ket_expression(backend._state.flatten()):
+            result[int(ket[loss_qubit])] += torch.square(torch.abs(amp))
+    else:
+        result = qml.QNode(circuit, backend, interface="torch", diff_method="best")()
 
     vector_norm = np.linalg.norm([1, 0, 1 * gamma, 0])
 
@@ -360,16 +365,17 @@ def loss_function(
         eps: float = 0.0,
         unclean_qubits: List[int] = None,
         l_type: int = 3,
+        precise: bool = False,
 ):
     loss1 = action_loss(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits,
         ancilla_qubits[:2], ancilla_qubits[2], ancilla_qubits[3], ancilla_qubits[4:], backend,
-        gamma, unclean_qubits=unclean_qubits,
+        gamma, unclean_qubits=unclean_qubits, precise=precise
     )
     loss2 = value_loss(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits,
         ancilla_qubits[:2], ancilla_qubits[2], ancilla_qubits[3:6], ancilla_qubits[6], ancilla_qubits[7:],
-        backend, gamma, eps, unclean_qubits=unclean_qubits,
+        backend, gamma, eps, unclean_qubits=unclean_qubits, precise=precise
     )
     if l_type >= 4:
         return lam * loss1 + loss2

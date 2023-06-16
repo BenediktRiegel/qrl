@@ -26,12 +26,11 @@ def get_arrow(x_start, y_start, x_end, y_end):
     return arrow
 
 
-def get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits):
-    backend = QuantumBackends.pennylane_default_qubit.get_pennylane_backend("", "", num_x_qubits + num_y_qubits + 2,
-                                                                            None)
-    x_qubits = list(range(num_x_qubits))
-    y_qubits = list(range(num_x_qubits, num_x_qubits + num_y_qubits))
-    action_qubits = list(range(num_x_qubits + num_y_qubits, num_x_qubits + num_y_qubits + 2))
+def get_action_probs(x, y, action_qnn, num_x_qubits, num_y_qubits):
+    wires, total_num_wires = get_wires([num_x_qubits, num_y_qubits, 2, 2])
+    x_qubits, y_qubits, action_qubits, ancilla_qubits = wires
+
+    backend = QuantumBackends.pennylane_default_qubit.get_pennylane_backend("", "", total_num_wires, None)
     x_bits = int_to_bitlist(x, num_x_qubits)
     y_bits = int_to_bitlist(y, num_y_qubits)
 
@@ -42,11 +41,15 @@ def get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits):
         for (y_q, y_b) in zip(y_qubits, y_bits):
             if y_b == 1:
                 qml.PauliX((y_q,))
-        action_qnn.circuit(x_qubits + y_qubits, action_qubits)
+        action_qnn.circuit(x_qubits + y_qubits, action_qubits, ancilla_qubits=ancilla_qubits)
 
         return [qml.probs(wires=action_qubits)]
 
-    probs = qml.QNode(circuit, backend)()[0].numpy()
+    return qml.QNode(circuit, backend)()[0].numpy()
+
+
+def get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits):
+    probs = get_action_probs(x, y, action_qnn, num_x_qubits, num_y_qubits)
     # 00: Right
     # 01: Down
     # 10: Left
@@ -60,7 +63,7 @@ def get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits):
 
 
 def get_value(x, y, value_qnn, num_x_qubits, num_y_qubits, v_m):
-    wires, total_num_wires = get_wires([num_x_qubits, num_y_qubits, 1, 1, 1])
+    wires, total_num_wires = get_wires([num_x_qubits, num_y_qubits, 1, 1, 2])
     x_qubits, y_qubits, value_qubit, swap_qubit, ancilla_qubits = wires
     value_qubit, swap_qubit = value_qubit[0], swap_qubit[0]
     backend = QuantumBackends.pennylane_default_qubit.get_pennylane_backend("", "", total_num_wires, None)
@@ -171,14 +174,12 @@ def plot_animated_frozen_lake(environment, frames, gamma):
     for idx, frame in enumerate(frames):
         frame["name"] = idx
     heatmap = np.empty((2 * len(environment.map), 2 * len(environment.map[0])))
-    print(f"heatmap shape: {heatmap.shape}")
     for y in range(len(environment.map)):
         for x in range(len(environment.map[0])):
             heatmap[2 * y, 2 * x] = environment.map[y][x].reward
             heatmap[2 * y, 2 * x + 1] = environment.map[y][x].reward
             heatmap[2 * y + 1, 2 * x] = environment.map[y][x].reward
             heatmap[2 * y + 1, 2 * x + 1] = environment.map[y][x].reward
-    print(f"heatmap zmin={-environment.r_m / (1 - gamma)}, zmax={environment.r_m / (1 - gamma)}")
     lake_fig = go.Figure(
         # data=frames[0]["data"]
         data=go.Heatmap(
@@ -197,9 +198,9 @@ def plot_animated_frozen_lake(environment, frames, gamma):
     lake_fig.update_layout(
         annotations=frames[0]["layout"]["annotations"],
         xaxis=dict(showgrid=True, zeroline=True,
-                   linecolor='black',),
+                   linecolor='black', ),
         yaxis=dict(showgrid=True, zeroline=True,
-                   linecolor='black',),
+                   linecolor='black', ),
     )
 
     lake_fig.update_layout(
@@ -269,4 +270,3 @@ def plot_loss(losses):
     df = pd.DataFrame(losses, columns=[f"loss"])
     fig = px.line(df, title="loss")
     return fig
-
