@@ -1,5 +1,6 @@
 from numpy import ceil, log2
 from torch import save, load
+import torch
 from torch.optim.lr_scheduler import StepLR
 from optimizer import OptimizerEnum
 from quantum_backends import QuantumBackends
@@ -29,8 +30,8 @@ def rot_swap_main():
     # action_optimizer_enum = OptimizerEnum.adam
     value_optimizer_enum = OptimizerEnum.sgd
     action_optimizer_enum = OptimizerEnum.sgd
-    value_lr = 0.05
-    action_lr = 0.08
+    value_lr = 0.5
+    action_lr = 0.5
     gamma = 0.8
     eps = 0.0
     lam = 0.8
@@ -77,20 +78,23 @@ def rot_swap_main():
         # [
         #     [FrozenField(reward=-10), FrozenField(reward=10)],
         # ],
-        [
-            [FrozenField.get_ice(), FrozenField.get_ice()],
-            [FrozenField.get_hole(), FrozenField.get_end()],
-        ],
+        # [
+        #     [FrozenField.get_ice(), FrozenField.get_ice()],
+        #     [FrozenField.get_hole(), FrozenField.get_end()],
+        # ],
+        # [
+        #     [FrozenField.get_end(), FrozenField.get_ice(), FrozenField.get_hole()]
+        # ]
         # [
         #     [FrozenField.get_ice(), FrozenField.get_ice()],
         #     [FrozenField.get_hole(), FrozenField.get_ice()],
         #     [FrozenField.get_ice(), FrozenField.get_ice()],
         #     [FrozenField.get_end(), FrozenField.get_hole()],
         # ],
-        # [
-        #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_end()],
-        #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
-        # ],
+        [
+            [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_end()],
+            [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
+        ],
         # [
         #     [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
         #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
@@ -121,9 +125,10 @@ def rot_swap_main():
         print("prepare qnn")
         # action_qnn = QNN(len(x_qubits), len(action_qubits), action_qnn_depth)
         action_qnn = RYQNN_Excessive(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth,
-                                     WeightInitEnum.standard_normal)
+                                     WeightInitEnum.zero)
         # action_qnn.in_q_parameters = load("./action_qnn/param0")
-        value_qnn = CCRYQNN_Excessive(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
+        value_qnn = CCRYQNN_Excessive(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.zero)
+        value_qnn.in_q_parameters = torch.nn.Parameter(value_qnn.in_q_parameters.detach() + torch.pi/2., requires_grad=True)
         # value_qnn.in_q_parameters = load("./value_qnn/param0")
         # action_qnn = RYQNN_D(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
         # value_qnn = CCRYQNN_D(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)

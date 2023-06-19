@@ -113,9 +113,10 @@ def main():
     # ]
     # map = [[FrozenField.get_ice(), FrozenField.get_ice()]]
     map = [
-        [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_end()],
-        [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
+        [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_end()],
+        [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
     ]
+    map = list(reversed(map))
     print("prepare environment")
     environment = FrozenLakeRotSwap(map, slip_probabilities, r_qubit_is_clean=True)
 

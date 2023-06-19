@@ -172,16 +172,16 @@ def value_loss(
         parameter.requires_grad = False
 
     def circuit():
-        # for s_qubit in x_qubits + y_qubits:
-        #     qml.Hadamard((s_qubit,))
+        for s_qubit in x_qubits + y_qubits:
+            qml.Hadamard((s_qubit,))
         # for s_qubit, b in enumerate([1, 0, 1, 1]):
         #     if b == 1:
         #         qml.PauliX((s_qubit,))
         # qml.Snapshot("Load state 1011")
         # for s_qubit in x_qubits + y_qubits:
         #     qml.PauliX((s_qubit,))
-        qml.PauliX((x_qubits[0],))
-        qml.PauliX((y_qubits[0],))
+        # qml.PauliX((x_qubits[0],))
+        # qml.PauliX((y_qubits[0],))
 
         value_loss_circuit(
             action_qnn, value_qnn, gradient_free_value_qnn, environment,
@@ -265,7 +265,7 @@ def value_loss(
     #     print(f"precise rescaled loss: {(true_prob[0] - true_prob[1])} * 3 * {v_max ** 2} * {2 + gamma ** 2} = {(true_prob[0] - true_prob[1]) * 3} * {v_max ** 2} * {(2 + gamma ** 2)} = {(true_prob[0] - true_prob[1]) * 3 * (v_max ** 2)} * {2 + gamma ** 2} = {(true_prob[0] - true_prob[1]) * 3 * (v_max ** 2) * (2 + gamma**2)}")
     #     print(f"precise rescaled loss: {(result[0] - result[1])} * 3 * {v_max ** 2} * {2 + gamma ** 2} = {(result[0] - result[1]) * 3} * {v_max ** 2} * {(2 + gamma ** 2)} = {(result[0] - result[1]) * 3 * (v_max ** 2)} * {2 + gamma ** 2} = {(result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma**2)}")
 
-    return (result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma ** 2)  # * 2**(len(x_qubits) + len(y_qubits))
+    return (result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma ** 2) * (2**(len(x_qubits) + len(y_qubits)))
 
 
 def action_loss_circuit(
@@ -385,12 +385,12 @@ def action_loss(
         parameter.requires_grad = False
 
     def circuit():
-        # for s_qubit in x_qubits + y_qubits:
-        #     qml.Hadamard((s_qubit,))
+        for s_qubit in x_qubits + y_qubits:
+            qml.Hadamard((s_qubit,))
         # for s_qubit in x_qubits + y_qubits:
         #     qml.PauliX((s_qubit,))
-        qml.PauliX((x_qubits[0],))
-        qml.PauliX((y_qubits[0],))
+        # qml.PauliX((x_qubits[0],))
+        # qml.PauliX((y_qubits[0],))
 
         action_loss_circuit(
             action_qnn, gradient_free_value_qnn, environment,
@@ -440,7 +440,7 @@ def action_loss(
     #
     #     # print(qml.draw(qnode)())
 
-    return (result[1] - result[0]) * vector_norm * np.sqrt(2) * v_max
+    return (result[1] - result[0]) * vector_norm * np.sqrt(2) * v_max * (2**(len(x_qubits) + len(y_qubits)))
 
 
 def loss_function(
