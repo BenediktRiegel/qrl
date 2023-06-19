@@ -5,7 +5,7 @@ from copy import deepcopy
 import numpy as np
 import torch
 from qnns import QNN
-from environment.frozen_lake2_2 import FrozenLake2_2
+from environment.frozen_lake_rot_swap import FrozenLakeRotSwap
 from debug_utils import (
     snapshots_to_debug_strings,
     snapshots_to_debug_dict,
@@ -24,23 +24,30 @@ def swap_test(swap_qubit: int, reg1: List[int], reg2: List[int]):
     qml.Hadamard((swap_qubit,))
 
 
+def ccry(c_qubits: List[int], phi: float, target_qubit: int, ancilla_qubits: List[int], unclean_qubits: List[int]):
+    adaptive_ccnot(c_qubits, ancilla_qubits[1:], unclean_qubits, ancilla_qubits[0])
+    qml.CRY(phi=phi, wires=(ancilla_qubits[0], target_qubit))
+    adaptive_ccnot(c_qubits, ancilla_qubits[1:], unclean_qubits, ancilla_qubits[0])
+
+
 def value_loss_circuit(
-        action_qnn: QNN, value_qnn: QNN, gradient_free_value_qnn: QNN, environment: FrozenLake2_2,
+        action_qnn: QNN, value_qnn: QNN, gradient_free_value_qnn: QNN, environment: FrozenLakeRotSwap,
         x_qubits: List[int], y_qubits: List[int], action_qubits: List[int],
         next_x_qubits: List[int], next_y_qubits: List[int],
         value_indices_qubits: List[int], value_qubit: int,
         swap_vector_qubits: List[int], loss_qubit: int,
         ancilla_qubits: List[int], unclean_qubits: List[int] = None,
         gamma: float = 0.9, eps: float = 0.0,
+        end_state_values: bool = False,
 ):
     r_max = environment.r_m
-    v_max = r_max / (1 - gamma)
+    v_max = r_max / (1 - gamma) if end_state_values else r_max
 
     ancilla_qubits = swap_vector_qubits + [loss_qubit] + ancilla_qubits
     # Determine next action
     if eps != 0:
-        eps_vec = np.array([[eps/(2**len(action_qubits))]*(2**len(action_qubits))])
-        eps_vec[0] += (1-eps)
+        eps_vec = np.array([[eps / (2 ** len(action_qubits))] * (2 ** len(action_qubits))])
+        eps_vec[0] += (1 - eps)
         eps_vec /= np.linalg.norm(eps_vec)
         LittleTreeLoader(
             eps_vec, action_qubits,
@@ -48,6 +55,7 @@ def value_loss_circuit(
             unclean_wires=unclean_qubits + x_qubits + y_qubits + next_x_qubits + next_y_qubits
         ).circuit()
     action_qnn.circuit(x_qubits + y_qubits, action_qubits, ancilla_qubits=ancilla_qubits, unclean_qubits=unclean_qubits)
+    qml.Snapshot("Chose action")
 
     # QAM(np.array([[1, 1], [0, 1], [1, 0]]), [], value_indices_qubits, ancilla_qubits, unclean_qubits)
     LittleTreeLoader(
@@ -63,19 +71,66 @@ def value_loss_circuit(
         x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, value_indices_qubits, [value_qubit], r_factor,
         ancilla_qubits, unclean_qubits
     )
-    # qml.Snapshot(f"After env. Set r on indices {''.join([str(el) for el in value_indices_qubits])}=11")
+    qml.Snapshot(f"After env. Set r on indices {''.join([str(el) for el in value_indices_qubits])}=11")
 
     # Load values
     qml.PauliX((value_indices_qubits[0],))
-    value_qnn.circuit(x_qubits + y_qubits, value_qubit, control_qubits=value_indices_qubits,
-                      ancilla_qubits=ancilla_qubits, unclean_qubits=x_qubits + y_qubits + action_qubits)
+    end_state_qubit = []
+    if not end_state_values:
+        end_state_qubit = ancilla_qubits[0:1]
+        ancilla_qubits = ancilla_qubits[1:]
+
+        # State Value
+        environment.check_end_state(
+            x_qubits, y_qubits,
+            ancilla_qubits=ancilla_qubits,
+            unclean_qubits=unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+            oracle_qubit=end_state_qubit[0],
+        )
+        ccry(end_state_qubit + value_indices_qubits, torch.pi, value_qubit, ancilla_qubits, unclean_qubits)
+        qml.PauliX((end_state_qubit[0],))
+    value_qnn.circuit(
+        x_qubits + y_qubits, value_qubit,
+        control_qubits=end_state_qubit + value_indices_qubits,
+        ancilla_qubits=ancilla_qubits, unclean_qubits=x_qubits + y_qubits + action_qubits
+    )
+    if not end_state_values:
+        qml.PauliX((end_state_qubit[0],))
+        environment.check_end_state(
+            x_qubits, y_qubits,
+            ancilla_qubits=ancilla_qubits,
+            unclean_qubits=unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+            oracle_qubit=end_state_qubit[0],
+        )
     qml.PauliX((value_indices_qubits[0],))
-    # qml.Snapshot(f"Set v(s) on indices {''.join([str(el) for el in value_indices_qubits])}=10")
+    qml.Snapshot(f"Set v(s) on indices {''.join([str(el) for el in value_indices_qubits])}=10")
+
+    # Next State Value
     qml.PauliX((value_indices_qubits[1],))
-    gradient_free_value_qnn.circuit(next_x_qubits + next_y_qubits, value_qubit, control_qubits=value_indices_qubits,
-                                    ancilla_qubits=ancilla_qubits, unclean_qubits=x_qubits + y_qubits + action_qubits)
+    if not end_state_values:
+        environment.check_end_state(
+            next_x_qubits, next_y_qubits,
+            ancilla_qubits=ancilla_qubits,
+            unclean_qubits=unclean_qubits + x_qubits + y_qubits + action_qubits,
+            oracle_qubit=end_state_qubit[0],
+        )
+        ccry(end_state_qubit + value_indices_qubits, torch.pi, value_qubit, ancilla_qubits, unclean_qubits)
+        qml.PauliX((end_state_qubit[0],))
+    gradient_free_value_qnn.circuit(
+        next_x_qubits + next_y_qubits, value_qubit,
+        control_qubits=end_state_qubit + value_indices_qubits,
+        ancilla_qubits=ancilla_qubits, unclean_qubits=x_qubits + y_qubits + action_qubits
+    )
+    if not end_state_values:
+        qml.PauliX((end_state_qubit[0],))
+        environment.check_end_state(
+            next_x_qubits, next_y_qubits,
+            ancilla_qubits=ancilla_qubits,
+            unclean_qubits=unclean_qubits + x_qubits + y_qubits + action_qubits,
+            oracle_qubit=end_state_qubit[0],
+        )
     qml.PauliX((value_indices_qubits[1],))
-    # qml.Snapshot(f"Set v(s') on indices {''.join([str(el) for el in value_indices_qubits])}=01")
+    qml.Snapshot(f"Set v(s') on indices {''.join([str(el) for el in value_indices_qubits])}=01")
 
     # Load swap vector
     ancilla_qubits = ancilla_qubits[len(swap_vector_qubits):]
@@ -89,15 +144,15 @@ def value_loss_circuit(
         ancilla_wires=ancilla_qubits,
         unclean_wires=unclean_qubits + x_qubits + y_qubits + action_qubits + next_x_qubits + next_y_qubits
     ).circuit()
-    # qml.Snapshot(f"Loaded swap vector")
+    qml.Snapshot(f"Loaded swap vector")
 
-    ancilla_qubits = ancilla_qubits[1:]  # Remove loss_qubit
+    # ancilla_qubits = ancilla_qubits[1:]  # Remove loss_qubit
     swap_test(loss_qubit, value_indices_qubits + [value_qubit], swap_vector_qubits)
-    # qml.Snapshot(f"Swap test")
+    qml.Snapshot(f"Swap test")
 
 
 def value_loss(
-        action_qnn: QNN, value_qnn: QNN, environment: FrozenLake2_2,
+        action_qnn: QNN, value_qnn: QNN, environment: FrozenLakeRotSwap,
         x_qubits: List[int], y_qubits: List[int], action_qubits: List[int],
         next_x_qubits: List[int], next_y_qubits: List[int],
         value_indices: List[int], value_qubit: int,
@@ -107,6 +162,8 @@ def value_loss(
         gamma: float = 0.9, eps: float = 0.0,
         unclean_qubits: List[int] = None,
         precise: bool = False,
+        end_state_values: bool = False,
+        diff_method: str = "best",
         snaps: bool = False,
 ):
     unclean_qubits = [] if unclean_qubits is None else unclean_qubits
@@ -115,14 +172,16 @@ def value_loss(
         parameter.requires_grad = False
 
     def circuit():
-        for s_qubit in x_qubits + y_qubits:
-            qml.Hadamard((s_qubit,))
+        # for s_qubit in x_qubits + y_qubits:
+        #     qml.Hadamard((s_qubit,))
         # for s_qubit, b in enumerate([1, 0, 1, 1]):
         #     if b == 1:
         #         qml.PauliX((s_qubit,))
         # qml.Snapshot("Load state 1011")
         # for s_qubit in x_qubits + y_qubits:
         #     qml.PauliX((s_qubit,))
+        qml.PauliX((x_qubits[0],))
+        qml.PauliX((y_qubits[0],))
 
         value_loss_circuit(
             action_qnn, value_qnn, gradient_free_value_qnn, environment,
@@ -132,24 +191,27 @@ def value_loss(
             swap_vector_qubits, loss_qubit,
             ancilla_qubits, unclean_qubits,
             gamma, eps,
+            end_state_values=end_state_values,
         )
 
         return qml.probs(wires=loss_qubit)
 
     # backprop, parameter-shift
     if precise:
-        qml.QNode(circuit, backend, interface="torch", diff_method="best")()
+        qml.QNode(circuit, backend, interface="torch", diff_method=diff_method)()
 
         result = torch.zeros(2)
         for amp, ket in vector_to_ket_expression(backend._state.flatten()):
             result[int(ket[loss_qubit])] += torch.square(torch.abs(amp))
     else:
-        result = qml.QNode(circuit, backend, interface="torch", diff_method="best")()
-
+        result = qml.QNode(circuit, backend, interface="torch", diff_method=diff_method)()
 
     r_max = environment.r_m
-    v_max = r_max / (1 - gamma)
+    v_max = r_max / (1 - gamma) if end_state_values else r_max
 
+    # snaps_strings = qml.snapshots(qml.QNode(circuit, backend, interface="torch", diff_method="best"))()
+    # for snap_str in snapshots_to_debug_strings(snaps_strings, show_zero_rounded=False):
+    #     print(snap_str)
     # if snaps:
     #     snaps_strings = qml.snapshots(qml.QNode(circuit, backend, interface="torch", diff_method="best"))()
     #     temp = x_qubits + y_qubits + action_qubits + next_x_qubits + next_y_qubits
@@ -203,22 +265,21 @@ def value_loss(
     #     print(f"precise rescaled loss: {(true_prob[0] - true_prob[1])} * 3 * {v_max ** 2} * {2 + gamma ** 2} = {(true_prob[0] - true_prob[1]) * 3} * {v_max ** 2} * {(2 + gamma ** 2)} = {(true_prob[0] - true_prob[1]) * 3 * (v_max ** 2)} * {2 + gamma ** 2} = {(true_prob[0] - true_prob[1]) * 3 * (v_max ** 2) * (2 + gamma**2)}")
     #     print(f"precise rescaled loss: {(result[0] - result[1])} * 3 * {v_max ** 2} * {2 + gamma ** 2} = {(result[0] - result[1]) * 3} * {v_max ** 2} * {(2 + gamma ** 2)} = {(result[0] - result[1]) * 3 * (v_max ** 2)} * {2 + gamma ** 2} = {(result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma**2)}")
 
-    return (result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma ** 2)    # * 2**(len(x_qubits) + len(y_qubits))
+    return (result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma ** 2)  # * 2**(len(x_qubits) + len(y_qubits))
 
 
 def action_loss_circuit(
-        action_qnn: QNN, gradient_free_value_qnn: QNN, environment: FrozenLake2_2,
+        action_qnn: QNN, gradient_free_value_qnn: QNN, environment: FrozenLakeRotSwap,
         x_qubits: List[int], y_qubits: List[int], action_qubits: List[int],
         next_x_qubits: List[int], next_y_qubits: List[int],
         value_indices_qubits: List[int], value_qubit: int, loss_qubit: int,
         ancilla_qubits: List[int], unclean_qubits: List[int] = None,
-        gamma: float = 0.9,
+        gamma: float = 0.9, end_state_values: bool = False
 ):
     ancilla_qubits = action_qubits + [loss_qubit] + [value_qubit] + ancilla_qubits + value_indices_qubits[1:]
-    value_indices_qubits = value_indices_qubits[:1]     # Only one qubit needed to achieve (q_value, -, reward, -)
+    value_indices_qubits = value_indices_qubits[:1]  # Only one qubit needed to achieve (q_value, -, reward, -)
     r_max = environment.r_m
-    v_max = r_max / (1 - gamma)
-
+    v_max = r_max / (1 - gamma) if end_state_values else r_max
 
     # QAM(np.array([[1], [0]]), [], value_indices_qubits, ancilla_qubits, unclean_qubits)
     # LittleTreeLoader(
@@ -227,7 +288,7 @@ def action_loss_circuit(
     #     unclean_wires=unclean_qubits,    #  + x_qubits + y_qubits + next_x_qubits + next_y_qubits + action_qubits
     # ).circuit()
 
-    ancilla_qubits = ancilla_qubits[len(action_qubits) + 2:]    # Remove action qubits, loss qubit and value qubit
+    ancilla_qubits = ancilla_qubits[len(action_qubits) + 2:]  # Remove action qubits, loss qubit and value qubit
     # Determine next action
     action_qnn.circuit(x_qubits + y_qubits, action_qubits, ancilla_qubits=ancilla_qubits, unclean_qubits=unclean_qubits)
 
@@ -255,8 +316,31 @@ def action_loss_circuit(
 
     # Load values
     # v(s) is loaded into loss_qubit = |1> and value_indices_qubits = |1>
-    gradient_free_value_qnn.circuit(next_x_qubits + next_y_qubits, value_qubit, control_qubits=[loss_qubit]+value_indices_qubits,
-                                    ancilla_qubits=ancilla_qubits, unclean_qubits=x_qubits + y_qubits + action_qubits)
+    end_state_qubit = []
+    if not end_state_values:
+        end_state_qubit = ancilla_qubits[0:1]
+        ancilla_qubits = ancilla_qubits[1:]
+        environment.check_end_state(
+            next_x_qubits, next_y_qubits,
+            ancilla_qubits=ancilla_qubits,
+            unclean_qubits=unclean_qubits + x_qubits + y_qubits + action_qubits,
+            oracle_qubit=end_state_qubit[0],
+        )
+        ccry(end_state_qubit + value_indices_qubits, torch.pi, value_qubit, ancilla_qubits, unclean_qubits)
+        qml.PauliX((end_state_qubit[0],))
+    gradient_free_value_qnn.circuit(
+        next_x_qubits + next_y_qubits, value_qubit,
+        control_qubits=end_state_qubit + [loss_qubit] + value_indices_qubits,
+        ancilla_qubits=ancilla_qubits, unclean_qubits=x_qubits + y_qubits + action_qubits
+    )
+    if not end_state_values:
+        qml.PauliX((end_state_qubit[0],))
+        environment.check_end_state(
+            next_x_qubits, next_y_qubits,
+            ancilla_qubits=ancilla_qubits,
+            unclean_qubits=unclean_qubits + x_qubits + y_qubits + action_qubits,
+            oracle_qubit=end_state_qubit[0],
+        )
     # qml.Toffoli(wires=(loss_qubit, value_indices_qubits[0], ancilla_qubits[0]))
     # qml.CRY(phi=np.pi, wires=(ancilla_qubits[0], value_qubit))
     # qml.Toffoli(wires=(loss_qubit, value_indices_qubits[0], ancilla_qubits[0]))
@@ -282,7 +366,7 @@ def action_loss_circuit(
 
 
 def action_loss(
-        action_qnn: QNN, value_qnn: QNN, environment: FrozenLake2_2,
+        action_qnn: QNN, value_qnn: QNN, environment: FrozenLakeRotSwap,
         x_qubits: List[int], y_qubits: List[int], action_qubits: List[int],
         next_x_qubits: List[int], next_y_qubits: List[int],
         value_indices_qubits: List[int], value_qubit: int,
@@ -291,7 +375,9 @@ def action_loss(
         backend,
         gamma: float = 0.9,
         unclean_qubits: List[int] = None,
-        precise:bool = False,
+        precise: bool = False,
+        end_state_values: bool = False,
+        diff_method: str = "best",
         snaps=False,
 ):
     gradient_free_value_qnn = deepcopy(value_qnn)
@@ -299,10 +385,12 @@ def action_loss(
         parameter.requires_grad = False
 
     def circuit():
-        for s_qubit in x_qubits + y_qubits:
-            qml.Hadamard((s_qubit,))
+        # for s_qubit in x_qubits + y_qubits:
+        #     qml.Hadamard((s_qubit,))
         # for s_qubit in x_qubits + y_qubits:
         #     qml.PauliX((s_qubit,))
+        qml.PauliX((x_qubits[0],))
+        qml.PauliX((y_qubits[0],))
 
         action_loss_circuit(
             action_qnn, gradient_free_value_qnn, environment,
@@ -312,24 +400,25 @@ def action_loss(
             loss_qubit,
             ancilla_qubits, unclean_qubits,
             gamma,
+            end_state_values=end_state_values,
         )
 
         return qml.probs(wires=loss_qubit)
 
     # backprop, parameter-shift
     if precise:
-        qml.QNode(circuit, backend, interface="torch", diff_method="best")()
+        qml.QNode(circuit, backend, interface="torch", diff_method=diff_method)()
 
         result = torch.zeros(2)
         for amp, ket in vector_to_ket_expression(backend._state.flatten()):
             result[int(ket[loss_qubit])] += torch.square(torch.abs(amp))
     else:
-        result = qml.QNode(circuit, backend, interface="torch", diff_method="best")()
+        result = qml.QNode(circuit, backend, interface="torch", diff_method=diff_method)()
 
     vector_norm = np.linalg.norm([1, 0, 1 * gamma, 0])
 
     r_max = environment.r_m
-    v_max = r_max / (1 - gamma)
+    v_max = r_max / (1 - gamma) if end_state_values else r_max
 
     # if snaps:
     #     qnode = qml.QNode(circuit, backend, diff_method="best")
@@ -355,7 +444,7 @@ def action_loss(
 
 
 def loss_function(
-        action_qnn: QNN, value_qnn: QNN, environment: FrozenLake2_2,
+        action_qnn: QNN, value_qnn: QNN, environment: FrozenLakeRotSwap,
         x_qubits: List[int], y_qubits: List[int], action_qubits: List[int],
         next_x_qubits: List[int], next_y_qubits: List[int],
         ancilla_qubits: List[int],
@@ -366,16 +455,21 @@ def loss_function(
         unclean_qubits: List[int] = None,
         l_type: int = 3,
         precise: bool = False,
+        end_state_values: bool = False,
+        action_diff_method: str = "best",
+        value_diff_method: str = "best",
 ):
     loss1 = action_loss(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits,
         ancilla_qubits[:2], ancilla_qubits[2], ancilla_qubits[3], ancilla_qubits[4:], backend,
-        gamma, unclean_qubits=unclean_qubits, precise=precise
+        gamma, unclean_qubits=unclean_qubits, precise=precise, end_state_values=end_state_values,
+        diff_method=action_diff_method,
     )
     loss2 = value_loss(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits,
         ancilla_qubits[:2], ancilla_qubits[2], ancilla_qubits[3:6], ancilla_qubits[6], ancilla_qubits[7:],
-        backend, gamma, eps, unclean_qubits=unclean_qubits, precise=precise
+        backend, gamma, eps, unclean_qubits=unclean_qubits, precise=precise, end_state_values=end_state_values,
+        diff_method=value_diff_method,
     )
     if l_type >= 4:
         return lam * loss1 + loss2

@@ -139,8 +139,9 @@ def get_frozen_lake_action_frame(environment, action_qnn, num_x_qubits, num_y_qu
     return go.Frame(layout=go.Layout(annotations=policy_arrows))
 
 
-def get_frozen_lake_value_frame(environment, value_qnn, num_x_qubits, num_y_qubits, gamma):
-    v_max = environment.r_m / (1 - gamma)
+def get_frozen_lake_value_frame(environment, value_qnn, num_x_qubits, num_y_qubits, gamma, end_state_values):
+    # v_max = environment.r_m / (1 - gamma)
+    v_max = environment.r_m / (1 - gamma) if end_state_values else environment.r_m
 
     param_requires_grad_value = value_qnn.parameters()[0].requires_grad
     for param in value_qnn.parameters():
@@ -163,14 +164,14 @@ def get_frozen_lake_value_frame(environment, value_qnn, num_x_qubits, num_y_qubi
     return go.Frame(data=value_fig)
 
 
-def get_frozen_lake_frame(environment, action_qnn, value_qnn, num_x_qubits, num_y_qubits, gamma):
+def get_frozen_lake_frame(environment, action_qnn, value_qnn, num_x_qubits, num_y_qubits, gamma, end_state_values):
     action_frame = get_frozen_lake_action_frame(environment, action_qnn, num_x_qubits, num_y_qubits)
-    value_frame = get_frozen_lake_value_frame(environment, value_qnn, num_x_qubits, num_y_qubits, gamma)
+    value_frame = get_frozen_lake_value_frame(environment, value_qnn, num_x_qubits, num_y_qubits, gamma, end_state_values)
     value_frame.update(action_frame)
     return value_frame
 
 
-def plot_animated_frozen_lake(environment, frames, gamma):
+def plot_animated_frozen_lake(environment, frames, gamma, end_state_values: bool = False):
     for idx, frame in enumerate(frames):
         frame["name"] = idx
     heatmap = np.empty((2 * len(environment.map), 2 * len(environment.map[0])))
@@ -186,8 +187,8 @@ def plot_animated_frozen_lake(environment, frames, gamma):
             z=heatmap,
             x=np.array(list(range(len(heatmap[0]))), dtype=float) / 2. - 0.25,
             y=np.array(list(range(len(heatmap))), dtype=float) / 2. - 0.25,
-            zmin=-environment.r_m / (1 - gamma),
-            zmax=environment.r_m / (1 - gamma),
+            zmin=-environment.r_m / (1-gamma) if end_state_values else environment.r_m,
+            zmax=environment.r_m / (1-gamma) if end_state_values else environment.r_m,
             showscale=True,
             colorscale=px.colors.sequential.Viridis,
             hoverinfo="all",

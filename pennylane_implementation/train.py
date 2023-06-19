@@ -3,14 +3,14 @@ from visualize.rot_swap_value import get_frozen_lake_frame, plot_animated_frozen
 from numpy import cos
 
 
-def update_plots(environment, gamma, frames, losses):
+def update_plots(fig_path, loss_path, environment, gamma, frames, losses):
     fig = plot_animated_frozen_lake(environment, frames, gamma)
-    with open("plots/fig.html", "w", encoding="utf-8") as f:
+    with open(fig_path, "w", encoding="utf-8") as f:
         f.write(fig.to_html())
         f.close()
 
     fig = plot_loss(losses)
-    with open("plots/loss.html", "w", encoding="utf-8") as f:
+    with open(loss_path, "w", encoding="utf-8") as f:
         f.write(fig.to_html())
         f.close()
 
@@ -109,7 +109,11 @@ def train(loss_fn, optimizer, num_iterations, sub_iterations, action_qnn, value_
     return frames, losses
 
 
-def train_with_two_opt(loss_fn, value_optimizer, action_optimizer, num_iterations, sub_iterations, action_qnn, value_qnn, loss_fn_params):
+def train_with_two_opt(
+        loss_fn, value_optimizer, action_optimizer, value_scheduler, action_scheduler,
+        num_iterations, sub_iterations, action_qnn, value_qnn, loss_fn_params,
+        fig_path, loss_path
+):
     """
     train the model with the given data and parameters
     """
@@ -118,6 +122,8 @@ def train_with_two_opt(loss_fn, value_optimizer, action_optimizer, num_iteration
     losses = []
 
     total_itr = 0
+
+    value_grads = []
 
     for i in range(num_iterations):
         start_it_time = time.time()
@@ -136,7 +142,6 @@ def train_with_two_opt(loss_fn, value_optimizer, action_optimizer, num_iteration
                         parameter.requires_grad = False
                     # zero gradients
                     value_optimizer.zero_grad(set_to_none=True)
-
 
                 # for parameter in action_qnn.parameters():
                 #     parameter.requires_grad = False
@@ -164,6 +169,8 @@ def train_with_two_opt(loss_fn, value_optimizer, action_optimizer, num_iteration
                 print("Backprop")
                 loss.backward()
 
+                value_grads.append(value_qnn.in_q_parameters.grad.detach().clone())
+
                 print("Optimize")
                 if itr_type == 1:
                     action_optimizer.step()
@@ -177,6 +184,7 @@ def train_with_two_opt(loss_fn, value_optimizer, action_optimizer, num_iteration
                     loss_fn_params["environment"], action_qnn, value_qnn,
                     len(loss_fn_params["x_qubits"]), len(loss_fn_params["y_qubits"]),
                     loss_fn_params["gamma"],
+                    loss_fn_params["end_state_values"],
                 ))
 
                 if itr_type == 1:
@@ -198,8 +206,14 @@ def train_with_two_opt(loss_fn, value_optimizer, action_optimizer, num_iteration
                 )
                 if total_itr == 5:
                     total_itr = 0
-                    update_plots(loss_fn_params["environment"], loss_fn_params["gamma"], frames, losses)
+                    update_plots(fig_path, loss_path, loss_fn_params["environment"], loss_fn_params["gamma"], frames, losses)
+
+        # value_scheduler.step()
+        # action_scheduler.step()
         # time
+        print(value_grads)
+        if i >= 3:
+            loss_fn_params["backend"].shots = min(loss_fn_params["backend"].shots*2, 10000000)
         total_it_time = time.time() - start_it_time
         minutes_it = total_it_time // 60
         seconds_it = round(total_it_time - minutes_it * 60)

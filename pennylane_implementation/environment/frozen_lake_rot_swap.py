@@ -35,7 +35,6 @@ class FrozenLakeRotSwap:
         go_left = [1] * x_ceil_log2 + [0] * y_ceil_log2
         go_up = [0] * x_ceil_log2 + [0] * max((y_ceil_log2 - 1), 0)
         self.moves = np.array([go_right, go_down, go_left, go_up, do_nothing])
-        print(f"self.moves: {self.moves}")
         self.slip_probabilities = np.array(slip_probabilities)
 
         self.r_qubit_is_clean = r_qubit_is_clean
@@ -127,7 +126,7 @@ class FrozenLakeRotSwap:
                     simple_single_oracle(
                         x_qubits + y_qubits,
                         int_to_bitlist(x_idx, len(x_qubits)) + int_to_bitlist(y_idx, len(y_qubits)),
-                        ancilla_qubits[1:], unclean_qubits, oracle_qubit
+                        ancilla_qubits, unclean_qubits, oracle_qubit
                     )
 
     def move_in_direction(
@@ -263,10 +262,11 @@ class FrozenLakeRotSwap:
         :return: none
         """
         oracle_qubit = ancilla_qubits[0]
-        adaptive_ccnot(control_qubits, ancilla_qubits[1:], unclean_qubits, oracle_qubit)
+        ancilla_qubits = ancilla_qubits[1:]
+        adaptive_ccnot(control_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
         for r_q in r_qubits:
             qml.CRY(phi=np.pi, wires=(oracle_qubit, r_q))
-        adaptive_ccnot(control_qubits, ancilla_qubits[1:], unclean_qubits, oracle_qubit)
+        adaptive_ccnot(control_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
         for y_idx, row in enumerate(self.map):
             for x_idx, field in enumerate(row):
                 if field.reward != 0:
@@ -274,7 +274,7 @@ class FrozenLakeRotSwap:
                         control_qubits,
                         x_qubits + y_qubits,
                         int_to_bitlist(x_idx, len(x_qubits)) + int_to_bitlist(y_idx, len(y_qubits)),
-                        ancilla_qubits[1:], unclean_qubits, oracle_qubit
+                        ancilla_qubits, unclean_qubits, oracle_qubit
                     )
                     # qml.Snapshot(f"Oracle for x:{x_idx}")
                     for r_q, fac in zip(r_qubits, factors):
@@ -283,7 +283,7 @@ class FrozenLakeRotSwap:
                         control_qubits,
                         x_qubits + y_qubits,
                         int_to_bitlist(x_idx, len(x_qubits)) + int_to_bitlist(y_idx, len(y_qubits)),
-                        ancilla_qubits[1:], unclean_qubits, oracle_qubit
+                        ancilla_qubits, unclean_qubits, oracle_qubit
                     )
 
     def circuit(

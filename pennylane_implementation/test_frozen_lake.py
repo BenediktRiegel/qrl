@@ -27,10 +27,10 @@ def compute_next_state(environment, state, action, log_cols, log_rows):
     y_int = bitlist_to_int(y)
     slip_probs = np.roll(environment.slip_probabilities, bitlist_to_int(action))
     resulting_states = [
-        int_to_bitlist(x_int+1, log_cols) + y if (x_int < (len(environment.map[0]) - 1)) else state,
-        x + int_to_bitlist(y_int-1, log_rows) if (y_int > 0) else state,
-        int_to_bitlist(x_int-1, log_cols) + y if (x_int > 0) else state,
-        x + int_to_bitlist(y_int+1, log_rows) if (y_int < (len(environment.map) - 1)) else state,
+        int_to_bitlist(x_int + 1, log_cols) + y if (x_int < (len(environment.map[0]) - 1)) else state,
+        x + int_to_bitlist(y_int - 1, log_rows) if (y_int > 0) else state,
+        int_to_bitlist(x_int - 1, log_cols) + y if (x_int > 0) else state,
+        x + int_to_bitlist(y_int + 1, log_rows) if (y_int < (len(environment.map) - 1)) else state,
     ]
     outcome = dict()
     for res_state, s_prob in zip(resulting_states, slip_probs):
@@ -53,39 +53,47 @@ def test_state_action(environment, state, action, log_cols, log_rows):
     r_qubit = r_qubit[0]
     backend = backend.get_pennylane_backend("", "", total_num_wires, shots)
 
-    print(f"x_qubits: {x_qubits}, y_qubits: {y_qubits}, action_qubits: {action_qubits}, next_x_qubits: {next_x_qubits}, next_y_qubits: {next_y_qubits}, r_qubit: {r_qubit}, ancilla_qubits: {ancilla_qubits}")
+    print(
+        f"x_qubits: {x_qubits}, y_qubits: {y_qubits}, action_qubits: {action_qubits}, next_x_qubits: {next_x_qubits}, next_y_qubits: {next_y_qubits}, r_qubit: {r_qubit}, ancilla_qubits: {ancilla_qubits}")
 
     def circuit():
-        for q, s in zip(x_qubits+y_qubits, state):
+        for q, s in zip(x_qubits + y_qubits, state):
             if s == 1:
                 qml.PauliX((q,))
         for q, a in zip(action_qubits, action):
             if a == 1:
                 qml.PauliX((q,))
-        environment.circuit(x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, [], [r_qubit], [1.], ancilla_qubits, [])
+        environment.circuit(x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, [], [r_qubit], [1.],
+                            ancilla_qubits, [])
         qml.Snapshot("result")
 
-        return qml.probs(x_qubits+y_qubits+action_qubits+next_x_qubits+next_y_qubits+[r_qubit])
+        return qml.probs(x_qubits + y_qubits + action_qubits + next_x_qubits + next_y_qubits + [r_qubit])
 
     snaps = qml.snapshots(qml.QNode(circuit, backend))()
-    prob_histogram = snapshots_to_prob_histogram({"result": snaps["result"]}, x_qubits+y_qubits+action_qubits+next_x_qubits+next_y_qubits+[r_qubit]+ancilla_qubits)
+    prob_histogram = snapshots_to_prob_histogram({"result": snaps["result"]},
+                                                 x_qubits + y_qubits + action_qubits + next_x_qubits + next_y_qubits + [
+                                                     r_qubit] + ancilla_qubits)
     pruned_probs = [dict() for _ in list(prob_histogram.values())[0]]
     for key, value in prob_histogram.items():
         # for idx, el in enumerate(value):
-        idx = len(value)-1
+        idx = len(value) - 1
         el = value[idx]
         temp = np.array([int(el) for el in key])
-        if (temp[np.array(x_qubits+y_qubits+action_qubits)] == np.array(state+action)).all() and (temp[np.array(ancilla_qubits)] == 0).all():
+        if (temp[np.array(x_qubits + y_qubits + action_qubits)] == np.array(state + action)).all() and (
+                temp[np.array(ancilla_qubits)] == 0).all():
             if el > 10e-5:
-                new_key = "".join([str(el) for el in temp[np.array(next_x_qubits+next_y_qubits)]])
+                new_key = "".join([str(el) for el in temp[np.array(next_x_qubits + next_y_qubits)]])
                 new_key += f".{temp[r_qubit]}"
                 pruned_probs[idx][new_key] = el
     for p in pruned_probs:
         print(sort_dict_str(p))
-    prob_strings = snapshots_to_probability_strings(snaps, x_qubits+y_qubits+action_qubits+next_x_qubits+next_y_qubits+[r_qubit]+ancilla_qubits)
-    for s in prob_strings:
-        print(s)
+    # prob_strings = snapshots_to_probability_strings(snaps,
+    #                                                 x_qubits + y_qubits + action_qubits + next_x_qubits + next_y_qubits + [
+    #                                                     r_qubit] + ancilla_qubits)
+    # for s in prob_strings:
+    #     print(s)
     print()
+
 
 def main():
     # shots = None
@@ -103,17 +111,21 @@ def main():
     # map = [
     #     [FrozenField(reward=-1), FrozenField(reward=1)] # , FrozenField(reward=1)],
     # ]
-    map = [[FrozenField.get_ice(), FrozenField.get_ice()]]
+    # map = [[FrozenField.get_ice(), FrozenField.get_ice()]]
+    map = [
+        [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_end()],
+        [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
+    ]
     print("prepare environment")
     environment = FrozenLakeRotSwap(map, slip_probabilities, r_qubit_is_clean=True)
 
     log_rows = int(ceil(log2(len(environment.map))))
     log_cols = int(ceil(log2(len(environment.map[0]))))
 
-    for y in range(len(map)):
-        for x in range(len(map[0])):
+    for y in [1]:   # range(len(map)):
+        for x in [2]:     # range(len(map[0])):
             state = int_to_bitlist(x, log_cols) + int_to_bitlist(y, log_rows)
-            for a in [0, 2]: # range(4):
+            for a in range(4):
                 action = int_to_bitlist(a, 2)
                 test_state_action(environment, state, action, log_cols, log_rows)
 
