@@ -570,12 +570,12 @@ class RYQNN_Excessive:
         # weight init
         if weight_init == WeightInitEnum.standard_normal:
             self.in_q_parameters = torch.nn.Parameter(
-                torch.pi * torch.randn((depth, 2 ** num_input_qubits, num_output_qubits)), requires_grad=True)
+                torch.pi * torch.randn((depth, 2 ** self.num_input_qubits, num_output_qubits)), requires_grad=True)
         elif weight_init == WeightInitEnum.uniform:
             self.in_q_parameters = torch.nn.Parameter(
-                torch.pi * torch.rand((depth, 2 ** num_input_qubits, num_output_qubits)), requires_grad=True)
+                torch.pi * torch.rand((depth, 2 ** self.num_input_qubits, num_output_qubits)), requires_grad=True)
         elif weight_init == WeightInitEnum.zero:
-            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2 ** num_input_qubits, num_output_qubits)),
+            self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2 ** self.num_input_qubits, num_output_qubits)),
                                                       requires_grad=True)
         else:
             raise NotImplementedError("Unknown weight init method")

@@ -30,11 +30,12 @@ class FrozenLakeRotSwap:
         y_ceil_log2 = int(np.ceil(np.log2(len(map))))
         self.y_xor_bits = [0 if el == 1 else 1 for el in int_to_bitlist(len(map) - 1, y_ceil_log2)] if len(map) > 1 else []
         do_nothing = [0] * (x_ceil_log2 + y_ceil_log2)
-        go_right = [0] * max((x_ceil_log2 - 1), 0) + [1] + [0] * y_ceil_log2
+        go_right = (([0] * (x_ceil_log2 - 1) + [1]) if x_ceil_log2 > 0 else []) + [0] * y_ceil_log2
         go_down = [0] * x_ceil_log2 + [1] * y_ceil_log2
         go_left = [1] * x_ceil_log2 + [0] * y_ceil_log2
-        go_up = [0] * x_ceil_log2 + [0] * max((y_ceil_log2 - 1), 0)
+        go_up = [0] * x_ceil_log2 + (([0] * (y_ceil_log2 - 1) + [1]) if y_ceil_log2 > 0 else [])
         self.moves = np.array([go_right, go_down, go_left, go_up, do_nothing])
+        print(self.moves)
         self.slip_probabilities = np.array(slip_probabilities)
 
         self.r_qubit_is_clean = r_qubit_is_clean

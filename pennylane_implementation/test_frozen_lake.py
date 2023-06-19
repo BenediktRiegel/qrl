@@ -122,8 +122,8 @@ def main():
     log_rows = int(ceil(log2(len(environment.map))))
     log_cols = int(ceil(log2(len(environment.map[0]))))
 
-    for y in [1]:   # range(len(map)):
-        for x in [2]:     # range(len(map[0])):
+    for y in range(len(map)):
+        for x in range(len(map[0])):
             state = int_to_bitlist(x, log_cols) + int_to_bitlist(y, log_rows)
             for a in range(4):
                 action = int_to_bitlist(a, 2)

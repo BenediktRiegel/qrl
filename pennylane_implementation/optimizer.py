@@ -15,7 +15,7 @@ class OptimizerEnum(Enum):
     r_adam = "RAdam"
     rms_prob = "RMSprop"
     # r_prop = "Rprop"               # AttributeError('Rprop')
-    # sdg = "SDG"                    # AttributeError('Rprop')
+    sgd = "SGD"
 
     def get_optimizer(self, parameters, lr):
         """
@@ -54,8 +54,8 @@ class OptimizerEnum(Enum):
         # elif optimizer == OptimizerEnum.Rprop:
         #     # AttributeError('Rprop')
         #     return optim.Rprop(model.parameters(), lr=step)
-        # elif optimizer == OptimizerEnum.sdg:
-        #     # AttributeError('Rprop')
-        #     return optim.SGD(model.parameters(), lr=step)
+        elif self == OptimizerEnum.sgd:
+            # AttributeError('Rprop')
+            return optim.SGD(parameters, lr=lr)
         else:
             raise NotImplementedError("Unkown optimizer")
