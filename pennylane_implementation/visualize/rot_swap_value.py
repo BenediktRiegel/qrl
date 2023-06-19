@@ -153,7 +153,7 @@ def get_frozen_lake_value_frame(environment, value_qnn, num_x_qubits, num_y_qubi
             value = get_value(x, y, value_qnn, num_x_qubits, num_y_qubits, v_max)
             heatmap[2 * y, 2 * x] = value
             heatmap[2 * y, 2 * x + 1] = value
-            heatmap[2 * y + 1, 2 * x] = value
+            heatmap[2 * y + 1, 2 * x] = np.cos(value_qnn.in_q_parameters.detach()[0, x*(2**int(np.log2(len(environment.map)))) + y] / 2.)
             heatmap[2 * y + 1, 2 * x + 1] = environment.map[y][x].reward
 
     for param in value_qnn.parameters():
