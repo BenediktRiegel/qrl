@@ -1,4 +1,20 @@
 import pennylane as qml
+from typing import List
+
+
+def check_wire_uniquness(c_qubits: List[int], a_qubits: List[int], unclean_qubits: List[int], t_qubit: int):
+    if len(c_qubits) != len(set(c_qubits)):
+        raise ValueError("control qubits may not have duplicates")
+    if len(a_qubits) != len(set(a_qubits)):
+        raise ValueError("ancilla qubits may not have duplicates")
+    if len(unclean_qubits) != len(set(unclean_qubits)):
+        raise ValueError("unclean qubits may not have duplicates")
+
+    wires = [(c_qubits, "control qubits"), (a_qubits, "ancilla qubits"), (unclean_qubits, "unclean qubits"), ([t_qubit], "target qubit")]
+    for idx, (wires1, name1) in enumerate(wires):
+        for (wires2, name2) in wires[idx+1:]:
+            if any(wire in wires1 for wire in wires2):
+                raise ValueError(f"{name1} and {name2} may not share qubits!")
 
 
 def xor_int(x1, x2):
@@ -21,6 +37,7 @@ def adaptive_ccnot(c_qubits, a_qubits, unclean_qubits, t_qubit):
     :return: None
     """
     unclean_qubits = [] if unclean_qubits is None else unclean_qubits
+    # check_wire_uniquness(c_qubits, a_qubits, unclean_qubits, t_qubit)
     if len(c_qubits) == 0:
         qml.PauliX((t_qubit,))
     elif len(c_qubits) == 1:
@@ -51,6 +68,7 @@ def one_ancilla_ccnot(c_qubits, a_qubit, t_qubit):
     If |c_qubits| is even => |c1| = |c_qubits|/2 and |c2| = |c_qubits|/2
     If |c_qubits| is uneven => |c1| = lower(|c_qubits|/2) and |c2| = ceil(|c_qubits|/2)
     """
+    # check_wire_uniquness(c_qubits, [a_qubit], [], t_qubit)
     if len(c_qubits) == 0:
         qml.PauliX((t_qubit,))
     elif len(c_qubits) == 1:
@@ -67,6 +85,7 @@ def one_ancilla_ccnot(c_qubits, a_qubit, t_qubit):
 
 
 def clean_ccnot(c_qubits, a_qubits, t_qubit):
+    # check_wire_uniquness(c_qubits, a_qubits, [], t_qubit)
     if len(c_qubits) == 0:
         qml.PauliX((t_qubit,))
     elif len(c_qubits) == 1:
@@ -91,6 +110,7 @@ def unclean_ccnot(c_qubits, a_qubits, t_qubit):
     :param t_qubit:
     :return:
     """
+    # check_wire_uniquness(c_qubits, a_qubits, [], t_qubit)
     if len(c_qubits) == 0:
         qml.PauliX((t_qubit,))
     elif len(c_qubits) == 1:

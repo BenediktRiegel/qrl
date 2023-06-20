@@ -16,9 +16,9 @@ from visualize.rot_swap_value import get_action_probs, get_frozen_lake_frame, pl
 
 
 def rot_swap_main():
-    num_iterations = 2
+    num_iterations = 5
     # 1: action, 2: value, 3: return both, 4: lam * action + value
-    sub_iterations = [(50, 2), (50, 1)]
+    sub_iterations = [(10, 1)]
     # sub_iterations = [(2, 2)]
     # sub_iterations = [(50, 4)]
     # sub_iterations = [(1, 2)]
@@ -76,7 +76,7 @@ def rot_swap_main():
     # ]
     maps = [
         # [
-        #     [FrozenField(reward=-10), FrozenField(reward=10)],
+        #     [FrozenField.get_end(), FrozenField.get_ice()],
         # ],
         # [
         #     [FrozenField.get_ice(), FrozenField.get_ice()],
@@ -117,7 +117,7 @@ def rot_swap_main():
         # x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, r_qubits, value_qubits, next_value_qubits = wires
         # Loss function2
         # wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 10])
-        wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 8])
+        wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 7])
         x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, ancilla_qubits = wires
         backend = backend_enum.get_pennylane_backend("", "", total_num_wires, shots)
         print(f"{total_num_wires} qubits")
@@ -127,8 +127,7 @@ def rot_swap_main():
         action_qnn = RYQNN_Excessive(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth,
                                      WeightInitEnum.zero)
         # action_qnn.in_q_parameters = load("./action_qnn/param0")
-        value_qnn = CCRYQNN_Excessive(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.zero)
-        value_qnn.in_q_parameters = torch.nn.Parameter(value_qnn.in_q_parameters.detach() + torch.pi/2., requires_grad=True)
+        value_qnn = CCRYQNN_Excessive(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
         # value_qnn.in_q_parameters = load("./value_qnn/param0")
         # action_qnn = RYQNN_D(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
         # value_qnn = CCRYQNN_D(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)

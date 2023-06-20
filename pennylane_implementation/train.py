@@ -169,7 +169,7 @@ def train_with_two_opt(
                 print("Backprop")
                 loss.backward()
 
-                value_grads.append(value_qnn.in_q_parameters.grad.detach().clone())
+                # value_grads.append(value_qnn.in_q_parameters.grad.detach().clone())
 
                 print("Optimize")
                 if itr_type == 1:

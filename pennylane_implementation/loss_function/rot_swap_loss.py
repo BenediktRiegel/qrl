@@ -89,10 +89,11 @@ def value_loss_circuit(
         )
         ccry(end_state_qubit + value_indices_qubits, torch.pi, value_qubit, ancilla_qubits, unclean_qubits)
         qml.PauliX((end_state_qubit[0],))
+    qml.Snapshot("Before value_qnn")
     value_qnn.circuit(
         x_qubits + y_qubits, value_qubit,
         control_qubits=end_state_qubit + value_indices_qubits,
-        ancilla_qubits=ancilla_qubits, unclean_qubits=x_qubits + y_qubits + action_qubits
+        ancilla_qubits=ancilla_qubits, unclean_qubits=next_x_qubits + next_y_qubits + action_qubits
     )
     if not end_state_values:
         qml.PauliX((end_state_qubit[0],))
@@ -129,6 +130,7 @@ def value_loss_circuit(
             unclean_qubits=unclean_qubits + x_qubits + y_qubits + action_qubits,
             oracle_qubit=end_state_qubit[0],
         )
+        ancilla_qubits = end_state_qubit + ancilla_qubits
     qml.PauliX((value_indices_qubits[1],))
     qml.Snapshot(f"Set v(s') on indices {''.join([str(el) for el in value_indices_qubits])}=01")
 
@@ -166,6 +168,8 @@ def value_loss(
         diff_method: str = "best",
         snaps: bool = False,
 ):
+    # print(
+    #     f"x_qubits: {x_qubits}, y_qubits: {y_qubits}, action_qubits: {action_qubits}, next_x_qubits: {next_x_qubits}, next_y_qubits: {next_y_qubits}, value_indices: {value_indices}, value_qubit: {value_qubit}, swap_vector_qubits: {swap_vector_qubits}, loss_qubit: {loss_qubit}, ancilla_qubits: {ancilla_qubits}")
     unclean_qubits = [] if unclean_qubits is None else unclean_qubits
     gradient_free_value_qnn = deepcopy(value_qnn)
     for parameter in gradient_free_value_qnn.parameters():
@@ -180,7 +184,7 @@ def value_loss(
         # qml.Snapshot("Load state 1011")
         # for s_qubit in x_qubits + y_qubits:
         #     qml.PauliX((s_qubit,))
-        # qml.PauliX((x_qubits[0],))
+        # qml.PauliX((x_qubits[1],))
         # qml.PauliX((y_qubits[0],))
 
         value_loss_circuit(
@@ -210,7 +214,11 @@ def value_loss(
     v_max = r_max / (1 - gamma) if end_state_values else r_max
 
     # snaps_strings = qml.snapshots(qml.QNode(circuit, backend, interface="torch", diff_method="best"))()
-    # for snap_str in snapshots_to_debug_strings(snaps_strings, show_zero_rounded=False):
+    # for snap_str in snapshots_to_debug_strings(
+    #         snaps_strings, show_zero_rounded=False,
+    #         make_space_at=[x_qubits[0], action_qubits[0], next_x_qubits[0],
+    #                        value_indices[0], value_qubit, swap_vector_qubits[0], loss_qubit]    # , ancilla_qubits[0]]
+    # ):
     #     print(snap_str)
     # if snaps:
     #     snaps_strings = qml.snapshots(qml.QNode(circuit, backend, interface="torch", diff_method="best"))()
@@ -265,7 +273,7 @@ def value_loss(
     #     print(f"precise rescaled loss: {(true_prob[0] - true_prob[1])} * 3 * {v_max ** 2} * {2 + gamma ** 2} = {(true_prob[0] - true_prob[1]) * 3} * {v_max ** 2} * {(2 + gamma ** 2)} = {(true_prob[0] - true_prob[1]) * 3 * (v_max ** 2)} * {2 + gamma ** 2} = {(true_prob[0] - true_prob[1]) * 3 * (v_max ** 2) * (2 + gamma**2)}")
     #     print(f"precise rescaled loss: {(result[0] - result[1])} * 3 * {v_max ** 2} * {2 + gamma ** 2} = {(result[0] - result[1]) * 3} * {v_max ** 2} * {(2 + gamma ** 2)} = {(result[0] - result[1]) * 3 * (v_max ** 2)} * {2 + gamma ** 2} = {(result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma**2)}")
 
-    return (result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma ** 2) * (2**(len(x_qubits) + len(y_qubits)))
+    return (result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma ** 2)  # * (2**(len(x_qubits) + len(y_qubits)))
 
 
 def action_loss_circuit(
@@ -341,6 +349,7 @@ def action_loss_circuit(
             unclean_qubits=unclean_qubits + x_qubits + y_qubits + action_qubits,
             oracle_qubit=end_state_qubit[0],
         )
+        ancilla_qubits = end_state_qubit + ancilla_qubits
     # qml.Toffoli(wires=(loss_qubit, value_indices_qubits[0], ancilla_qubits[0]))
     # qml.CRY(phi=np.pi, wires=(ancilla_qubits[0], value_qubit))
     # qml.Toffoli(wires=(loss_qubit, value_indices_qubits[0], ancilla_qubits[0]))
@@ -440,7 +449,7 @@ def action_loss(
     #
     #     # print(qml.draw(qnode)())
 
-    return (result[1] - result[0]) * vector_norm * np.sqrt(2) * v_max * (2**(len(x_qubits) + len(y_qubits)))
+    return (result[1] - result[0]) * vector_norm * np.sqrt(2) * v_max * (2 ** (len(x_qubits) + len(y_qubits)))
 
 
 def loss_function(
