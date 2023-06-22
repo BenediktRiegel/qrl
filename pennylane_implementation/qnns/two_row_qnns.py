@@ -570,10 +570,10 @@ class RYQNN_Excessive:
         # weight init
         if weight_init == WeightInitEnum.standard_normal:
             self.in_q_parameters = torch.nn.Parameter(
-                torch.pi * torch.randn((depth, 2 ** self.num_input_qubits, num_output_qubits)), requires_grad=True)
+                torch.pi * torch.randn((depth, 2 ** self.num_input_qubits, num_output_qubits + 1)), requires_grad=True)
         elif weight_init == WeightInitEnum.uniform:
             self.in_q_parameters = torch.nn.Parameter(
-                torch.pi * torch.rand((depth, 2 ** self.num_input_qubits, num_output_qubits)), requires_grad=True)
+                torch.pi * torch.rand((depth, 2 ** self.num_input_qubits, num_output_qubits + 1)), requires_grad=True)
         elif weight_init == WeightInitEnum.zero:
             self.in_q_parameters = torch.nn.Parameter(torch.zeros((depth, 2 ** self.num_input_qubits, num_output_qubits)),
                                                       requires_grad=True)
@@ -588,8 +588,9 @@ class RYQNN_Excessive:
         for idx, q_out_params in enumerate(self.in_q_parameters[layer_num]):
             bits = int_to_bitlist(idx, self.num_input_qubits)
             simple_single_oracle(input_qubits, bits, ancilla_qubits[1:], unclean_qubits, ancilla_qubits[0])
-            for out_q, q_param in zip(output_qubits, q_out_params):
+            for out_q, q_param in zip(output_qubits, q_out_params[:-1]):
                 qml.CRY(phi=q_param, wires=(ancilla_qubits[0], out_q))
+                qml.CRY(phi=q_out_params[-1], wires=(ancilla_qubits[0], out_q))
             simple_single_oracle(input_qubits, bits, ancilla_qubits[1:], unclean_qubits, ancilla_qubits[0])
 
     def circuit(
