@@ -164,8 +164,8 @@ def rot_swap_main():
             num_iterations, sub_iterations, action_qnn, value_qnn,
             loss_function_params, fig_path, loss_path
         )
-        frames = [get_frozen_lake_frame(environment, action_qnn, value_qnn, len(x_qubits), len(y_qubits), gamma,
-                                        end_state_values)] + frames
+        frames = frames + [get_frozen_lake_frame(environment, action_qnn, value_qnn, len(x_qubits), len(y_qubits), gamma,
+                                        end_state_values)]
 
         for param in action_qnn.parameters():
             param.requires_grad = False
