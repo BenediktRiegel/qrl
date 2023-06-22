@@ -8,7 +8,7 @@ from utils import int_to_bitlist
 from wire_utils import get_wires
 
 
-def get_arrow(x_start, y_start, x_end, y_end):
+def get_arrow(x_start, y_start, x_end, y_end, color=(255, 51, 0)):
     # print(f"({x_start}, {y_start}) -> ({x_end}, {y_end})")
     arrow = go.layout.Annotation(dict(
         x=x_end,
@@ -21,7 +21,7 @@ def get_arrow(x_start, y_start, x_end, y_end):
         ay=y_start,
         arrowhead=3,
         arrowwidth=3,
-        arrowcolor='rgb(255,51,0)', )
+        arrowcolor=f'rgb({color[0]},{color[1]},{color[2]})', )
     )
     return arrow
 
@@ -48,16 +48,29 @@ def get_action_probs(x, y, action_qnn, num_x_qubits, num_y_qubits):
     return qml.QNode(circuit, backend)()[0].numpy()
 
 
-def get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits):
+def get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits, slip_probs):
     probs = get_action_probs(x, y, action_qnn, num_x_qubits, num_y_qubits)
+
+    slip_probs = np.array(slip_probs)
+    slipped_probs = np.zeros(4)
+    for a_prob in probs:
+        slipped_probs += (a_prob * slip_probs)
+        slip_probs = np.roll(slip_probs, shift=1)
     # 00: Right
     # 01: Down
     # 10: Left
     # 11: Up
-    pos = np.array([x, y])
-    direction = [np.array([1, 0]), np.array([0, -1]), np.array([-1, 0]), np.array([0, 1])]
-    end_pos = [pos + (p * d) / 2. for p, d in zip(probs, direction)]
-    arrows = [get_arrow(x, y, e_p[0], e_p[1]) for e_p in end_pos]
+    x_offset = 0.04
+    y_offset = 0.04
+    direction = [np.array([1-x_offset, 0]), np.array([0, -1+y_offset]), np.array([-1+x_offset, 0]), np.array([0, 1-y_offset])]
+
+    start_pos = np.array([[x+x_offset, y+y_offset], [x-x_offset, y-y_offset], [x-x_offset, y+y_offset], [x-x_offset, y+y_offset]])
+    end_pos = [pos + (p * d) / 2. for pos, p, d in zip(start_pos, probs, direction)]
+    arrows = [get_arrow(s_p[0], s_p[1], e_p[0], e_p[1]) for s_p, e_p in zip(start_pos, end_pos)]
+
+    slipped_start_pos = np.array([[x+x_offset, y-y_offset], [x+x_offset, y-y_offset], [x-x_offset, y-y_offset], [x+x_offset, y+y_offset]])
+    slipped_end_pos = [pos + (p * d) / 2. for pos, p, d in zip(slipped_start_pos, slipped_probs, direction)]
+    arrows += [get_arrow(s_p[0], s_p[1], e_p[0], e_p[1], color=(0, 0, 0)) for s_p, e_p in zip(slipped_start_pos, slipped_end_pos)]
 
     return arrows
 
@@ -132,7 +145,7 @@ def get_frozen_lake_action_frame(environment, action_qnn, num_x_qubits, num_y_qu
     policy_arrows = []
     for y in range(len(environment.map)):
         for x in range(len(environment.map[0])):
-            policy_arrows += get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits)
+            policy_arrows += get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits, environment.slip_probabilities)
 
     for param in action_qnn.parameters():
         param.requires_grad = param_requires_grad_value
@@ -253,6 +266,9 @@ def plot_animated_frozen_lake(environment, frames, gamma, end_state_values: bool
                  'yanchor': 'top'}
             ]
     })
+    print(f"lake_fig height: {lake_fig.layout.height}")
+    lake_fig.layout.height = 800
+    lake_fig.layout.width = 800
 
     return lake_fig
 

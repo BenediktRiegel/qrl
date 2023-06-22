@@ -78,10 +78,10 @@ def rot_swap_main():
         # [
         #     [FrozenField.get_end(), FrozenField.get_ice()],
         # ],
-        # [
-        #     [FrozenField.get_ice(), FrozenField.get_ice()],
-        #     [FrozenField.get_hole(), FrozenField.get_end()],
-        # ],
+        [
+            [FrozenField.get_ice(), FrozenField.get_ice()],
+            [FrozenField.get_hole(), FrozenField.get_end()],
+        ],
         # [
         #     [FrozenField.get_end(), FrozenField.get_ice(), FrozenField.get_hole()]
         # ],
@@ -91,10 +91,10 @@ def rot_swap_main():
         #     [FrozenField.get_ice(), FrozenField.get_ice()],
         #     [FrozenField.get_end(), FrozenField.get_hole()],
         # ],
-        [
-            [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_end()],
-            [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
-        ],
+        # [
+        #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_end()],
+        #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
+        # ],
         # [
         #     [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
         #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
