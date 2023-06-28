@@ -62,7 +62,7 @@ def get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits, slip_probs):
     # 11: Up
     x_offset = 0.04
     y_offset = 0.04
-    direction = [np.array([1-x_offset, 0]), np.array([0, -1+y_offset]), np.array([-1+x_offset, 0]), np.array([0, 1-y_offset])]
+    direction = [np.array([1-2*x_offset, 0]), np.array([0, -1+2*y_offset]), np.array([-1+2*x_offset, 0]), np.array([0, 1-2*y_offset])]
 
     start_pos = np.array([[x+x_offset, y+y_offset], [x-x_offset, y-y_offset], [x-x_offset, y+y_offset], [x-x_offset, y+y_offset]])
     end_pos = [pos + (p * d) / 2. for pos, p, d in zip(start_pos, probs, direction)]
@@ -266,9 +266,9 @@ def plot_animated_frozen_lake(environment, frames, gamma, end_state_values: bool
                  'yanchor': 'top'}
             ]
     })
-    print(f"lake_fig height: {lake_fig.layout.height}")
-    lake_fig.layout.height = 800
-    lake_fig.layout.width = 800
+
+    # lake_fig.layout.height = 800
+    # lake_fig.layout.width = 800
 
     return lake_fig
 
