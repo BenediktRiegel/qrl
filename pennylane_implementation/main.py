@@ -32,6 +32,7 @@ def rot_swap_main():
     # action_optimizer_enum = OptimizerEnum.sgd
     value_lr = 0.5
     action_lr = 0.5
+    default_reward = -0.01
     gamma = 0.8
     eps = 0.0
     lam = 0.8
@@ -78,10 +79,10 @@ def rot_swap_main():
         # [
         #     [FrozenField.get_end(), FrozenField.get_ice()],
         # ],
-        [
-            [FrozenField.get_ice(), FrozenField.get_ice()],
-            [FrozenField.get_hole(), FrozenField.get_end()],
-        ],
+        # [
+        #     [FrozenField.get_ice(), FrozenField.get_ice()],
+        #     [FrozenField.get_hole(), FrozenField.get_end()],
+        # ],
         # [
         #     [FrozenField.get_end(), FrozenField.get_ice(), FrozenField.get_hole()]
         # ],
@@ -95,19 +96,19 @@ def rot_swap_main():
         #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_end()],
         #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
         # ],
-        # [
-        #     [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
-        #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
-        #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
-        #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
-        # ],
+        [
+            [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
+            [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
+            [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
+            [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
+        ],
     ]
     for idx, map in enumerate(maps):
         fig_path = f"plots/test_fig{idx}.html"
         loss_path = f"plots/test_loss{idx}.html"
         print("prepare environment")
         map = [el for el in reversed(map)]
-        environment = FrozenLakeRotSwap(map, slip_probabilities, r_qubit_is_clean=True)
+        environment = FrozenLakeRotSwap(map, slip_probabilities, default_reward=default_reward, r_qubit_is_clean=True)
 
         log_rows = int(ceil(log2(len(map))))
         log_cols = int(ceil(log2(len(map[0]))))

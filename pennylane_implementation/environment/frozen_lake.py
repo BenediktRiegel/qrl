@@ -27,7 +27,7 @@ def cc_simple_single_oracle(control_qubits, reg_qubits, state, ancilla_qubits, u
 
 
 class FrozenField:
-    def __init__(self, reward=0, end=False):
+    def __init__(self, reward: float = None, end: bool = False):
         self.reward = reward
         self.end = end
 
@@ -41,7 +41,7 @@ class FrozenField:
 
     @staticmethod
     def get_ice():
-        return FrozenField(reward=0, end=False)
+        return FrozenField(reward=None, end=False)
 
 
 class FrozenLake(Environment):

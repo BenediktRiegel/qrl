@@ -11,17 +11,17 @@ from load_data import QAM, LittleTreeLoader
 
 class FrozenLakeRotSwap:
     def __init__(
-            self, map: List[List[FrozenField]], slip_probabilities: List[float],
+            self, map: List[List[FrozenField]], slip_probabilities: List[float], default_reward: float = 0.,
             r_qubit_is_clean: bool = False,
     ):
         super().__init__()
         self.map = map
+        self.default_reward = default_reward
         self.r_m = np.abs(map[0][0].reward)
         for row in map:
             for field in row:
-                temp = np.abs(field.reward)
-                if temp > self.r_m:
-                    self.r_m = temp
+                self.r_m = np.max(np.abs(field.reward), self.r_m)
+        self.r_m = np.max(np.abs(self.default_reward), self.r_m)
 
         # possible edge cases
         self.possible_edge_cases = self.get_possible_edge_cases()
@@ -262,15 +262,16 @@ class FrozenLakeRotSwap:
         :param unclean_qubits: qubits to aid execution (They may be in any state)
         :return: none
         """
+        default_reward_angles = [np.arccos(self.default_reward * fac)*2 for fac in factors]
         oracle_qubit = ancilla_qubits[0]
         ancilla_qubits = ancilla_qubits[1:]
         adaptive_ccnot(control_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
-        for r_q in r_qubits:
-            qml.CRY(phi=np.pi, wires=(oracle_qubit, r_q))
+        for r_q, d_r_angles in zip(r_qubits, default_reward_angles):
+            qml.CRY(phi=d_r_angles, wires=(oracle_qubit, r_q))
         adaptive_ccnot(control_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
         for y_idx, row in enumerate(self.map):
             for x_idx, field in enumerate(row):
-                if field.reward != 0:
+                if field.reward is not None or field.reward != self.default_reward:
                     cc_simple_single_oracle(
                         control_qubits,
                         x_qubits + y_qubits,
@@ -278,8 +279,8 @@ class FrozenLakeRotSwap:
                         ancilla_qubits, unclean_qubits, oracle_qubit
                     )
                     # qml.Snapshot(f"Oracle for x:{x_idx}")
-                    for r_q, fac in zip(r_qubits, factors):
-                        qml.CRY(phi=(np.arccos(field.reward * fac) * 2 - np.pi), wires=(oracle_qubit, r_q))
+                    for r_q, fac, d_r_angles in zip(r_qubits, factors, default_reward_angles):
+                        qml.CRY(phi=(np.arccos(field.reward * fac) * 2 - d_r_angles), wires=(oracle_qubit, r_q))
                     cc_simple_single_oracle(
                         control_qubits,
                         x_qubits + y_qubits,
