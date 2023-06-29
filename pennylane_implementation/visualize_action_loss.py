@@ -71,6 +71,7 @@ def visualize_action_loss():
     ]
     for idx, map in enumerate(maps):
         plot_path = f"./plots/loss{idx}_mapped.html"
+        fig_path = f"./plots/fig{idx}_mapped.html"
         print("prepare environment")
         map = [el for el in reversed(map)]
         environment = FrozenLakeRotSwap(map, slip_probabilities, r_qubit_is_clean=True)
@@ -96,17 +97,19 @@ def visualize_action_loss():
         action_qnn.in_q_parameters.requires_grad = False
         action_qnn.in_q_parameters[0, 0, 2] = 0
         value_qnn = CCRYQNN_Excessive(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
-        # value_qnn.in_q_parameters = load("./value_qnn/param0")
+        value_qnn.in_q_parameters = load("./value_qnn/param0")
         # action_qnn = RYQNN_D(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
         # value_qnn = CCRYQNN_D(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
 
-        params = torch.arange(0, 4*torch.pi, step=torch.pi*0.5)
+        # params = torch.arange(0, 4*torch.pi, step=torch.pi*0.125)
+        params = torch.tensor([0, torch.pi])
+        move = ["right", "down", "left", "up"]
 
         action_losses = torch.empty((len(params), len(params)))
+        frames = []
         for i1, p1 in enumerate(params):
             action_qnn.in_q_parameters[0, 0, 0] = p1
             for i2, p2 in enumerate(params):
-                print(f"{i1+1}/{len(params)}, {i2+1}/{len(params)}")
                 action_qnn.in_q_parameters[0, 0, 1] = p2
                 action_losses[i1, i2] = action_loss(
                     action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits,
@@ -114,6 +117,9 @@ def visualize_action_loss():
                     gamma, unclean_qubits=[], precise=False, end_state_values=end_state_values,
                     diff_method=action_diff_method,
                 )
+                print(f"{i1+1}/{len(params)}, {i2+1}/{len(params)}: {action_losses[i1, i2]}, move: {move[2*i1 + i2]}")
+                frames.append(get_frozen_lake_frame(environment, action_qnn, value_qnn, len(x_qubits), len(y_qubits), gamma,
+                                      end_state_values))
 
         fig = go.Figure(go.Heatmap(
             x=params,
@@ -121,6 +127,11 @@ def visualize_action_loss():
             z=action_losses,
         ))
         with open(plot_path, "w", encoding="utf-8") as f:
+            f.write(fig.to_html())
+            f.close()
+
+        fig = plot_animated_frozen_lake(environment, frames, gamma)
+        with open(fig_path, "w", encoding="utf-8") as f:
             f.write(fig.to_html())
             f.close()
 
