@@ -17,11 +17,18 @@ class FrozenLakeRotSwap:
         super().__init__()
         self.map = map
         self.default_reward = default_reward
-        self.r_m = np.abs(map[0][0].reward)
+        self.r_m = None
         for row in map:
             for field in row:
-                self.r_m = np.max(np.abs(field.reward), self.r_m)
-        self.r_m = np.max(np.abs(self.default_reward), self.r_m)
+                if field.reward is not None:
+                    if self.r_m is None:
+                        self.r_m = np.abs(field.reward)
+                    else:
+                        self.r_m = np.max(np.abs(field.reward), self.r_m)
+        if self.r_m is None:
+            self.r_m = np.abs(self.default_reward)
+        else:
+            self.r_m = np.max(np.abs(self.default_reward), self.r_m)
 
         # possible edge cases
         self.possible_edge_cases = self.get_possible_edge_cases()
