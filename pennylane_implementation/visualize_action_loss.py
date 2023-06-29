@@ -95,7 +95,7 @@ def visualize_action_loss():
                                      WeightInitEnum.standard_normal)
         action_qnn.in_q_parameters = load("./action_qnn/param0")
         action_qnn.in_q_parameters.requires_grad = False
-        # action_qnn.in_q_parameters[0, 0, 2] = 0
+        action_qnn.in_q_parameters[0, 0, 2] = 0
         value_qnn = CCRYQNN_Excessive(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
         value_qnn.in_q_parameters = load("./value_qnn/param0")
         # action_qnn = RYQNN_D(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
