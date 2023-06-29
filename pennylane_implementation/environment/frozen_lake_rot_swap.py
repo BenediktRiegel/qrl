@@ -24,11 +24,11 @@ class FrozenLakeRotSwap:
                     if self.r_m is None:
                         self.r_m = np.abs(field.reward)
                     else:
-                        self.r_m = np.max(np.abs(field.reward), self.r_m)
+                        self.r_m = max(np.abs(field.reward), self.r_m)
         if self.r_m is None:
             self.r_m = np.abs(self.default_reward)
         else:
-            self.r_m = np.max(np.abs(self.default_reward), self.r_m)
+            self.r_m = max(np.abs(self.default_reward), self.r_m)
 
         # possible edge cases
         self.possible_edge_cases = self.get_possible_edge_cases()
@@ -278,7 +278,7 @@ class FrozenLakeRotSwap:
         adaptive_ccnot(control_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
         for y_idx, row in enumerate(self.map):
             for x_idx, field in enumerate(row):
-                if field.reward is not None or field.reward != self.default_reward:
+                if field.reward is not None and field.reward != self.default_reward:
                     cc_simple_single_oracle(
                         control_qubits,
                         x_qubits + y_qubits,
