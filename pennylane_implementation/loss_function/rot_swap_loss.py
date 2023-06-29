@@ -449,7 +449,7 @@ def action_loss(
     #
     #     # print(qml.draw(qnode)())
 
-    return (result[1] - result[0]) * vector_norm * np.sqrt(2) * v_max * (2 ** (len(x_qubits) + len(y_qubits)))
+    return (result[1] - result[0]) * vector_norm * np.sqrt(2) * v_max   # * (2 ** (len(x_qubits) + len(y_qubits)))
 
 
 def loss_function(
