@@ -42,9 +42,9 @@ def visualize_action_loss():
     # slip_probabilities = [1., 0., 0., 0.]
 
     maps = [
-        [
-            [FrozenField.get_end(), FrozenField.get_ice()],
-        ],
+        # [
+        #     [FrozenField.get_end(), FrozenField.get_ice()],
+        # ],
         # [
         #     [FrozenField.get_ice(), FrozenField.get_ice()],
         #     [FrozenField.get_hole(), FrozenField.get_end()],
@@ -62,12 +62,12 @@ def visualize_action_loss():
         #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_end()],
         #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
         # ],
-        # [
-        #     [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
-        #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
-        #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
-        #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
-        # ],
+        [
+            [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
+            [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
+            [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
+            [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
+        ],
     ]
     for idx, map in enumerate(maps):
         plot_path = f"./plots/loss{idx}_mapped.html"
@@ -92,15 +92,15 @@ def visualize_action_loss():
         # action_qnn = QNN(len(x_qubits), len(action_qubits), action_qnn_depth)
         action_qnn = RYQNN_Excessive(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth,
                                      WeightInitEnum.standard_normal)
-        # action_qnn.in_q_parameters = load("./action_qnn/param0")
+        action_qnn.in_q_parameters = load("./action_qnn/param0")
         action_qnn.in_q_parameters.requires_grad = False
-        # action_qnn.in_q_parameters[0, 0, 2] = 0
+        action_qnn.in_q_parameters[0, 0, 2] = 0
         value_qnn = CCRYQNN_Excessive(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
         # value_qnn.in_q_parameters = load("./value_qnn/param0")
         # action_qnn = RYQNN_D(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
         # value_qnn = CCRYQNN_D(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
 
-        params = torch.arange(0, 4*torch.pi, step=torch.pi*0.125)
+        params = torch.arange(0, 4*torch.pi, step=torch.pi*0.5)
 
         action_losses = torch.empty((len(params), len(params)))
         for i1, p1 in enumerate(params):
