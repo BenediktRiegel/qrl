@@ -128,7 +128,7 @@ def plot_frozen_lake(environment, action_qnn, num_x_qubits, num_y_qubits):
     policy_arrows = []
     for y in range(len(Z)):
         for x in range(len(Z[0])):
-            policy_arrows += get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits)
+            policy_arrows += get_policy_arrows(x, y, action_qnn, num_x_qubits, num_y_qubits, environment.slip_probabilities)
 
     lake_fig.update_layout(annotations=policy_arrows)
 
@@ -161,13 +161,13 @@ def get_frozen_lake_value_frame(environment, value_qnn, num_x_qubits, num_y_qubi
         param.requires_grad = False
 
     heatmap = np.empty((2 * len(environment.map), 2 * len(environment.map[0])))
-    for y in range(len(environment.map)):
-        for x in range(len(environment.map[0])):
+    for y, row in enumerate(environment.map):
+        for x, field in enumerate(row):
             value = get_value(x, y, value_qnn, num_x_qubits, num_y_qubits, v_max)
             heatmap[2 * y, 2 * x] = value
             heatmap[2 * y, 2 * x + 1] = value
             heatmap[2 * y + 1, 2 * x] = np.cos(value_qnn.in_q_parameters.detach()[0, x*(2**int(np.log2(len(environment.map)))) + y] / 2.)
-            heatmap[2 * y + 1, 2 * x + 1] = environment.map[y][x].reward
+            heatmap[2 * y + 1, 2 * x + 1] = environment.default_reward if field.reward is None else field.reward
 
     for param in value_qnn.parameters():
         param.requires_grad = param_requires_grad_value
