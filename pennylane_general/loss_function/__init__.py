@@ -87,20 +87,6 @@ def value_loss(
         diff_method: str = "best",
         snaps: bool = False,
 ):
-    print(dict(
-        x_qubits=x_qubits, y_qubits=y_qubits, action_qubits=action_qubits,
-        next_x_qubits=next_x_qubits, next_y_qubits=next_y_qubits,
-        extra_x_qubits=extra_x_qubits, extra_y_qubits=extra_y_qubits,
-        value_indices_qubits=value_indices_qubits, value_qubit=value_qubit,
-        swap_vector_qubits=swap_vector_qubits, loss_qubit=loss_qubit,
-        ancilla_qubits=ancilla_qubits,
-        gamma=gamma, eps=eps,
-        unclean_qubits=unclean_qubits,
-        precise=precise,
-        end_state_values=end_state_values,
-        diff_method=diff_method,
-        snaps=snaps,
-    ))
     # print(
     #     f"x_qubits: {x_qubits}, y_qubits: {y_qubits}, action_qubits: {action_qubits}, next_x_qubits: {next_x_qubits}, next_y_qubits: {next_y_qubits}, value_indices: {value_indices}, value_qubit: {value_qubit}, swap_vector_qubits: {swap_vector_qubits}, loss_qubit: {loss_qubit}, ancilla_qubits: {ancilla_qubits}")
     unclean_qubits = [] if unclean_qubits is None else unclean_qubits
@@ -227,8 +213,7 @@ def value_loss_circuit(
     v_max = r_max / (1 - gamma) if end_state_values else r_max
 
     ancilla_qubits = value_indices_qubits + next_x_qubits + next_y_qubits + [value_qubit] + extra_x_qubits + extra_y_qubits + swap_vector_qubits + [loss_qubit]
-    print(f"{value_indices_qubits} + {next_x_qubits} + {next_y_qubits} + {[value_qubit]} + {extra_x_qubits} + {extra_y_qubits} + {swap_vector_qubits} + {[loss_qubit]}")
-    print(f"ancilla_qubits: {ancilla_qubits}")
+
     # Determine next action
     action_qnn.circuit([], x_qubits + y_qubits, action_qubits, ancilla_qubits=ancilla_qubits, unclean_qubits=unclean_qubits)
     qml.Snapshot("Chose action")
@@ -379,26 +364,9 @@ def action_loss_circuit(
         ancilla_qubits: List[int], unclean_qubits: List[int] = None,
         gamma: float = 0.9, end_state_values: bool = False
 ):
-    params = dict(
-        x_qubits=x_qubits, y_qubits=y_qubits, action_qubits=action_qubits,
-        next_x_qubits=next_x_qubits, next_y_qubits=next_y_qubits,
-        extra_x_qubits=extra_x_qubits, extra_y_qubits=extra_y_qubits,
-        value_indices_qubits=value_indices_qubits, value_qubit=value_qubit,
-        swap_vector_qubits=swap_vector_qubits, loss_qubit=loss_qubit,
-        ancilla_qubits=ancilla_qubits,
-        gamma=0.9,
-        unclean_qubits=unclean_qubits,
-        precise=False,
-        end_state_values=False,
-        diff_method="best",
-        snaps=False,
-    )
-    print(f"params: {params}")
     ancilla_qubits = action_qubits + value_indices_qubits + [value_qubit] + swap_vector_qubits + [loss_qubit] + ancilla_qubits
     r_max = environment.r_m
     v_max = r_max / (1 - gamma) if end_state_values else r_max
-
-    print(f"value_indices_qubits: {value_indices_qubits}")
 
     # QAM(np.array([[1], [0]]), [], value_indices_qubits, ancilla_qubits, unclean_qubits)
     # LittleTreeLoader(
@@ -501,21 +469,6 @@ def action_loss(
         diff_method: str = "best",
         snaps=False,
 ):
-    params = dict(
-        x_qubits=x_qubits, y_qubits=y_qubits, action_qubits=action_qubits,
-        next_x_qubits=next_x_qubits, next_y_qubits=next_y_qubits,
-        extra_x_qubits=extra_x_qubits, extra_y_qubits=extra_y_qubits,
-        value_indices_qubits=value_indices_qubits, value_qubit=value_qubit,
-        swap_vector_qubits=swap_vector_qubits, loss_qubit=loss_qubit,
-        ancilla_qubits=ancilla_qubits,
-        gamma=0.9,
-        unclean_qubits=unclean_qubits,
-        precise=False,
-        end_state_values=False,
-        diff_method="best",
-        snaps=False,
-    )
-    print(f"params: {params}")
     gradient_free_value_qnn = deepcopy(value_qnn)
     for parameter in gradient_free_value_qnn.parameters():
         parameter.requires_grad = False
@@ -606,7 +559,6 @@ def loss_function(
         gamma, unclean_qubits=unclean_qubits, precise=precise, end_state_values=end_state_values,
         diff_method=action_diff_method,
     )
-    print(f"ancilla_qubits[:3], ancilla_qubits[4], ancilla_qubits[4:8], {ancilla_qubits[8]}, {ancilla_qubits[9:]},")
     loss2 = value_loss(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits,
         next_x_qubits, next_y_qubits,
