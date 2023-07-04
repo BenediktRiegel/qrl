@@ -152,7 +152,7 @@ def get_value(x, y, value_qnn, num_x_qubits, num_y_qubits, v_m):
 
     swap_vector_norm = np.linalg.norm(np.array([2, -1, -1, 0]))
 
-    value = 2*v_m - (np.sqrt(result) * swap_vector_norm * (2**(len(swap_vector_qubits[:-3]) / 2.)))
+    value = v_m - (np.sqrt(result) * swap_vector_norm * (2**(len(swap_vector_qubits[:-3]) / 2.))) / 2.
 
     return value
 
