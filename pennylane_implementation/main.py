@@ -16,7 +16,7 @@ from visualize.rot_swap_value import get_action_probs, get_frozen_lake_frame, pl
 
 
 def rot_swap_main():
-    num_iterations = 6
+    num_iterations = 12
     # 1: action, 2: value, 3: return both, 4: lam * action + value
     sub_iterations = [(50, 2), (50, 1)]
     # sub_iterations = [(2, 2)]
