@@ -350,7 +350,7 @@ def value_loss_circuit(
     qml.Snapshot(f"Loaded swap vector")
 
     ancilla_qubits = ancilla_qubits[1:]  # Remove loss_qubit
-    swap_test(loss_qubit, value_indices_qubits + [value_qubit], swap_vector_qubits)
+    swap_test(loss_qubit, extra_x_qubits + extra_y_qubits + value_indices_qubits + [value_qubit], swap_vector_qubits)
     qml.Snapshot(f"Swap test")
 
 
@@ -390,6 +390,7 @@ def action_loss_circuit(
         qml.Hadamard((q,))
 
     r_factor = [1 / v_max]
+    # r_factor = [0]
 
     ancilla_qubits = ancilla_qubits[1:]  # Remove value qubit
     # Transistion
@@ -439,16 +440,17 @@ def action_loss_circuit(
     vector /= vector_norm
     # print(f"normed vec: {vector}")
 
-    qml.PauliX((loss_qubit,))
+    for s_q in swap_vector_qubits[:-3]:
+        qml.Hadamard((s_q,))
+
     LittleTreeLoader(
-        vector, swap_vector_qubits[:-1],
+        vector, swap_vector_qubits[-3:-1],
         ancilla_wires=ancilla_qubits,
         unclean_wires=unclean_qubits + x_qubits + y_qubits + action_qubits + next_x_qubits + next_y_qubits + value_indices_qubits
     ).circuit()
-    # qml.PauliX((loss_qubit,))
 
     ancilla_qubits = ancilla_qubits[1:]  # Remove loss qubit
-    swap_test(loss_qubit, value_indices_qubits + [value_qubit], swap_vector_qubits)
+    swap_test(loss_qubit, extra_x_qubits + extra_y_qubits + value_indices_qubits + [value_qubit], swap_vector_qubits)
 
     # qml.Snapshot("Result")
 
@@ -494,6 +496,7 @@ def action_loss(
         )
 
         return qml.expval(qml.PauliZ((loss_qubit,)))
+        # return qml.probs(loss_qubit)
 
     # backprop, parameter-shift
     if precise:
@@ -551,11 +554,12 @@ def loss_function(
         action_diff_method: str = "best",
         value_diff_method: str = "best",
 ):
+    state_size = len(x_qubits) + len(y_qubits)
     loss1 = action_loss(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits,
         next_x_qubits, next_y_qubits,
         extra_x_qubits, extra_y_qubits,
-        ancilla_qubits[:2], ancilla_qubits[2], ancilla_qubits[3:6], ancilla_qubits[6], ancilla_qubits[7:], backend,
+        ancilla_qubits[:2], ancilla_qubits[2], ancilla_qubits[3:6+state_size], ancilla_qubits[6+state_size], ancilla_qubits[state_size+7:], backend,
         gamma, unclean_qubits=unclean_qubits, precise=precise, end_state_values=end_state_values,
         diff_method=action_diff_method,
     )
@@ -563,7 +567,7 @@ def loss_function(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits,
         next_x_qubits, next_y_qubits,
         extra_x_qubits, extra_y_qubits,
-        ancilla_qubits[:3], ancilla_qubits[3], ancilla_qubits[4:8], ancilla_qubits[8], ancilla_qubits[9:],
+        ancilla_qubits[:3], ancilla_qubits[3], ancilla_qubits[4:8+state_size], ancilla_qubits[state_size+8], ancilla_qubits[state_size+9:],
         backend, gamma, eps, unclean_qubits=unclean_qubits, precise=precise, end_state_values=end_state_values,
         diff_method=value_diff_method,
     )

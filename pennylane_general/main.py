@@ -16,9 +16,9 @@ from visualize.rot_swap_value import get_action_probs, get_frozen_lake_frame, pl
 
 
 def rot_swap_main():
-    num_iterations = 1
+    num_iterations = 4
     # 1: action, 2: value, 3: return both, 4: lam * action + value
-    sub_iterations = [(1, 1), (1, 2)]
+    sub_iterations = [(25, 2), (25, 1)]
     # sub_iterations = [(2, 2)]
     # sub_iterations = [(50, 4)]
     # sub_iterations = [(1, 2)]
@@ -30,8 +30,8 @@ def rot_swap_main():
     action_optimizer_enum = OptimizerEnum.adam
     # value_optimizer_enum = OptimizerEnum.sgd
     # action_optimizer_enum = OptimizerEnum.sgd
-    value_lr = 0.5
-    action_lr = 0.5
+    value_lr = 0.01
+    action_lr = 0.01
     default_reward = 0
     gamma = 0.8
     eps = 0.0
@@ -118,7 +118,7 @@ def rot_swap_main():
         # x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, r_qubits, value_qubits, next_value_qubits = wires
         # Loss function2
         # wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 10])
-        wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, log_cols, log_rows, 9])
+        wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, log_cols, log_rows, 9 + log_cols + log_rows])
         x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, extra_x_qubits, extra_y_qubits, ancilla_qubits = wires
         backend = backend_enum.get_pennylane_backend("", "", total_num_wires, shots)
         print(f"{total_num_wires} qubits")
