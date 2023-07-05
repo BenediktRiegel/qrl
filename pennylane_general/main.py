@@ -16,13 +16,13 @@ from visualize.rot_swap_value import get_action_probs, get_frozen_lake_frame, pl
 
 
 def rot_swap_main():
-    num_iterations = 4
+    num_iterations = 2
     # 1: action, 2: value, 3: return both, 4: lam * action + value
-    sub_iterations = [(25, 2), (25, 1)]
+    sub_iterations = [(25, 2), (25, 2)]
     # sub_iterations = [(2, 2)]
     # sub_iterations = [(50, 4)]
     # sub_iterations = [(1, 2)]
-    precise = False
+    precise = True
     end_state_values = False
     action_qnn_depth = 1
     value_qnn_depth = 1
@@ -30,15 +30,15 @@ def rot_swap_main():
     action_optimizer_enum = OptimizerEnum.adam
     # value_optimizer_enum = OptimizerEnum.sgd
     # action_optimizer_enum = OptimizerEnum.sgd
-    value_lr = 0.01
-    action_lr = 0.01
+    value_lr = 0.25
+    action_lr = 0.25
     default_reward = 0
     gamma = 0.8
     eps = 0.0
     lam = 0.8
     # backend_enum = QuantumBackends.pennylane_lightning_kokkos
-    # backend_enum = QuantumBackends.pennylane_default_qubic
-    backend_enum = QuantumBackends.pennylane_lightning_qubit
+    backend_enum = QuantumBackends.pennylane_default_qubit
+    # backend_enum = QuantumBackends.pennylane_lightning_qubit
     shots = 100000
     action_diff_method = "best"
     value_diff_method = "best"

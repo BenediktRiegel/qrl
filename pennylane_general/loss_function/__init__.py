@@ -332,7 +332,7 @@ def value_loss_circuit(
     # Reminder 010: state value, 011: conjugate state value,
     # 100: next state value, 101: conjugate next state value,
     # 111: reward
-    vector = np.array([[0, 0, 1, 1, -1 * gamma, -1 * gamma, 0, -1]])
+    vector = np.array([[0, 0, 0.5, 0.5, -0.5 * gamma, -0.5 * gamma, 0, -1]])
     # print(f"swap vector: {vector[0]}")
     vector_norm = np.linalg.norm(vector[0])
     vector /= vector_norm
@@ -403,6 +403,7 @@ def action_loss_circuit(
         value_indices_qubits, [value_qubit], r_factor,
         ancilla_qubits, unclean_qubits
     )
+    # qml.Toffoli(wires=(value_indices_qubits[0], value_indices_qubits[1], value_qubit))
     # qml.Snapshot("Reward")
 
     # Load next state value into value_indices_qubits 01
@@ -416,6 +417,7 @@ def action_loss_circuit(
         unclean_qubits=unclean_qubits + x_qubits + y_qubits + action_qubits,
         end_state_values=end_state_values,
     )
+    # qml.Toffoli(wires=(value_indices_qubits[0], value_indices_qubits[1], value_qubit))
     qml.PauliX((value_indices_qubits[0],))
 
     # Load conjugate next state value into value_indices_qubits 10
@@ -430,12 +432,16 @@ def action_loss_circuit(
         end_state_values=end_state_values,
         conjugate=True,
     )
+    # qml.Toffoli(wires=(value_indices_qubits[0], value_indices_qubits[1], value_qubit))
     qml.PauliX((value_indices_qubits[1],))
+
+    for q in extra_x_qubits + extra_y_qubits:
+        qml.Hadamard((q,))
 
 
     ancilla_qubits = ancilla_qubits[len(swap_vector_qubits):]
     # Load swap vector
-    vector = np.array([[2*gamma + 1, -1*gamma, -1*gamma, -1]])
+    vector = np.array([[gamma + 1, -0.5*gamma, -0.5*gamma, -1]])
     vector_norm = np.linalg.norm(vector[0])
     vector /= vector_norm
     # print(f"normed vec: {vector}")
@@ -452,7 +458,7 @@ def action_loss_circuit(
     ancilla_qubits = ancilla_qubits[1:]  # Remove loss qubit
     swap_test(loss_qubit, extra_x_qubits + extra_y_qubits + value_indices_qubits + [value_qubit], swap_vector_qubits)
 
-    # qml.Snapshot("Result")
+    qml.Snapshot("Result")
 
 
 def action_loss(
@@ -509,7 +515,7 @@ def action_loss(
     else:
         result = qml.QNode(circuit, backend, interface="torch", diff_method=diff_method)()
 
-    vector_norm = np.linalg.norm([2*gamma + 1, -1*gamma, -1*gamma, -1])
+    vector_norm = np.linalg.norm([gamma + 1, -0.5*gamma, -0.5*gamma, -1])
 
     r_max = environment.r_m
     v_max = r_max / (1 - gamma) if end_state_values else r_max
@@ -523,18 +529,18 @@ def action_loss(
     #     print(f"vector_norm = {vector_norm}")
     #     print(f"true probs: {probs}")
     #     print(f"measured probs: {result}")
-    #     print(f"({probs[1]} - {probs[0]}) * {vector_norm} * {v_max} = {probs[1] - probs[0]} * {vector_norm} * {v_max} = {(probs[1] - probs[0]) * vector_norm} * {v_max} = {(probs[1] - probs[0]) * vector_norm} * {v_max} = {(probs[1] - probs[0]) * vector_norm * v_max}")
-    #     print(f"({result[1]} - {result[0]}) * {vector_norm} * {v_max} = {result[1] - result[0]} * {vector_norm} * {v_max} = {(result[1] - result[0]) * vector_norm} * {v_max} = {(result[1] - result[0]) * vector_norm} * {v_max} = {(result[1] - result[0]) * vector_norm * v_max}")
-    #     print(f"{(probs[1] - probs[0]) * vector_norm * np.sqrt(2)} * {v_max} = {(probs[1] - probs[0]) * vector_norm * np.sqrt(2) * v_max}")
+    #     print(f"({probs[0]} - {probs[1]}) * {vector_norm} * {v_max} = {probs[0] - probs[1]} * {vector_norm} * {v_max} = {(probs[0] - probs[1]) * vector_norm} * {v_max} = {(probs[0] - probs[1]) * vector_norm} * {v_max} = {(probs[0] - probs[1]) * vector_norm * v_max}")
+    #     print(f"({result}) * {vector_norm} * {v_max} = {result} * {vector_norm} * {v_max} = {result * vector_norm} * {v_max} = {result * vector_norm} * {v_max} = {result * vector_norm * v_max}")
+    #     print(f"{(probs[0] - probs[1]) * vector_norm * np.sqrt(2)} * {v_max} = {(probs[0] - probs[1]) * vector_norm * np.sqrt(2) * v_max}")
     #     p_wires = [loss_qubit] + value_indices_qubits[:1] + [value_qubit]
     #     # p_wires.sort()
-    #     print(f"loss_qubit: {loss_qubit}, value_indices: {value_indices_qubits[:1]}, value_qubit: {value_qubit}")
-    #     probs = snapshots_to_prob_histogram({"Reward": snapshots["Reward"]}, wires=p_wires)
-    #     print(f"reward: {probs}")
+    #     # print(f"loss_qubit: {loss_qubit}, value_indices: {value_indices_qubits[:1]}, value_qubit: {value_qubit}")
+    #     # probs = snapshots_to_prob_histogram({"Reward": snapshots["Reward"]}, wires=p_wires)
+    #     # print(f"reward: {probs}")
     #
     #     # print(qml.draw(qnode)())
 
-    return result * vector_norm * np.sqrt(2) * v_max  # * (2 ** (len(x_qubits) + len(y_qubits)))
+    return torch.sqrt(result) * 2 * vector_norm * v_max   # * (2**((len(x_qubits) + len(y_qubits)))) # * (2 ** (len(x_qubits) + len(y_qubits)))
 
 
 def loss_function(
@@ -562,6 +568,7 @@ def loss_function(
         ancilla_qubits[:2], ancilla_qubits[2], ancilla_qubits[3:6+state_size], ancilla_qubits[6+state_size], ancilla_qubits[state_size+7:], backend,
         gamma, unclean_qubits=unclean_qubits, precise=precise, end_state_values=end_state_values,
         diff_method=action_diff_method,
+        snaps=False,
     )
     loss2 = value_loss(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits,

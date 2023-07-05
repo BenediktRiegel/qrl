@@ -374,9 +374,3 @@ class FrozenLakeRotSwap:
             ancilla_qubits,
             x_qubits + y_qubits + action_qubits + unclean_qubits,
         )
-
-        self.move(
-            r_control_qubits, x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits,
-            r_qubits + ancilla_qubits if self.r_qubit_is_clean else ancilla_qubits,
-            unclean_qubits,
-        )
