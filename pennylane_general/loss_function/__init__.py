@@ -134,67 +134,20 @@ def value_loss(
     r_max = environment.r_m
     v_max = r_max / (1 - gamma) if end_state_values else r_max
 
+    vector_norm = np.linalg.norm([0, 0, 0.5, 0.5, -0.5 * gamma, -0.5 * gamma, 0, -1])
+
+    # print(f"extra_x_qubits: {extra_x_qubits}, extra_y_qubits: {extra_y_qubits}, value_indices_qubits: {value_indices_qubits}, [value_qubit]: {[value_qubit]}, swap_vector_qubits: {swap_vector_qubits}")
     # snaps_strings = qml.snapshots(qml.QNode(circuit, backend, interface="torch", diff_method="best"))()
+    # print(f"make_space_at: {[extra_x_qubits[0], extra_y_qubits[0], value_indices_qubits[0], value_qubit, swap_vector_qubits[0]]}")
     # for snap_str in snapshots_to_debug_strings(
     #         snaps_strings, show_zero_rounded=False,
-    #         make_space_at=[x_qubits[0], action_qubits[0], next_x_qubits[0],
-    #                        value_indices[0], value_qubit, swap_vector_qubits[0], loss_qubit]    # , ancilla_qubits[0]]
+    #         # wires=extra_x_qubits + extra_y_qubits + value_indices_qubits + [value_qubit] + swap_vector_qubits,
+    #         make_space_at=[extra_x_qubits[0], extra_y_qubits[0], value_indices_qubits[0], value_qubit, swap_vector_qubits[0]]    # , ancilla_qubits[0]]
     # ):
     #     print(snap_str)
-    # if snaps:
-    #     snaps_strings = qml.snapshots(qml.QNode(circuit, backend, interface="torch", diff_method="best"))()
-    #     temp = x_qubits + y_qubits + action_qubits + next_x_qubits + next_y_qubits
-    #     temp.sort()
-    #     num_uninteresting_qubits = len(temp)
-    #     print(np.count_nonzero(snaps_strings["Loaded swap vector"]))
-    #     print(np.array(snaps_strings["Loaded swap vector"]).size)
-    #     probs = {k: v[-1] for (k, v) in snapshots_to_prob_histogram({"Loaded swap vector": snaps_strings["Loaded swap vector"]}, temp).items()}
-    #     state = np.array(snaps_strings["Loaded swap vector"])
-    #     # we have the loss qubit
-    #     num_interesting = 2**(len(value_indices) + 1 + len(swap_vector_qubits))
-    #     swap_state_size = 2**len(swap_vector_qubits)
-    #     # state = state[::2]
-    #     sum = 0
-    #     nonzero_count = []
-    #     # for i in range(len(state) // num_interesting):
-    #     #     p = probs["".join([str(el) for el in int_to_bitlist(i, num_uninteresting_qubits)])]
-    #     #     s = state[i*num_interesting:(i+1)*num_interesting]
-    #     #     nonzero_count.append(np.count_nonzero(s))
-    #     #     if p != 0:
-    #     #         if np.count_nonzero(s) != 0:
-    #     #             print(len(s))
-    #     #             # print(f"s: {s}")
-    #     #             print(f"p: {p}")
-    #     #         s_sum = 0
-    #     #         for j in range(0, swap_state_size, 2):
-    #     #             # print(f"idx: {(swap_state_size + 1)*j}")
-    #     #             s_sum += s[(swap_state_size + 1)*j]
-    #     #         # print(f"s_sum: {s_sum}")
-    #     #         sum += p * np.square(np.abs(s_sum))
-    #
-    #     print(np.bincount(np.abs(state) > 10e-12))
-    #     total_num_wires = int(np.log2(len(state)))
-    #     for idx, s in enumerate(state):
-    #         if np.abs(s) >= 10e-12:
-    #             temp = [str(el) for el in int_to_bitlist(idx, total_num_wires)]
-    #             make_space_at = [x_qubits[0], y_qubits[0], next_x_qubits[0], next_y_qubits[0], action_qubits[0], value_qubit, value_indices[0], swap_vector_qubits[0], loss_qubit]
-    #             make_space_at.sort()
-    #             for k in reversed(make_space_at):
-    #                 temp.insert(k, " ")
-    #             print(f"{s} |{''.join(temp)}>")
-    #
-    #
-    #     print(f"calculated result: {sum}")
-    #     print(f"measured prob: {result}")
-    #     true_prob = snapshots_to_prob_histogram(snaps_strings, [loss_qubit])
-    #     true_prob = [true_prob['0'][-1], true_prob['1'][-1]]
-    #     print(f"true prob: {true_prob}")
-    #     print(f"precise result: {true_prob[0] - true_prob[1]}")
-    #     print(f"result: {result[0] - result[1]}")
-    #     print(f"precise rescaled loss: {(true_prob[0] - true_prob[1])} * 3 * {v_max ** 2} * {2 + gamma ** 2} = {(true_prob[0] - true_prob[1]) * 3} * {v_max ** 2} * {(2 + gamma ** 2)} = {(true_prob[0] - true_prob[1]) * 3 * (v_max ** 2)} * {2 + gamma ** 2} = {(true_prob[0] - true_prob[1]) * 3 * (v_max ** 2) * (2 + gamma**2)}")
-    #     print(f"precise rescaled loss: {(result[0] - result[1])} * 3 * {v_max ** 2} * {2 + gamma ** 2} = {(result[0] - result[1]) * 3} * {v_max ** 2} * {(2 + gamma ** 2)} = {(result[0] - result[1]) * 3 * (v_max ** 2)} * {2 + gamma ** 2} = {(result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma**2)}")
 
-    return result * 3 * (v_max ** 2) * (2 + gamma ** 2)  # * (2**(len(x_qubits) + len(y_qubits)))
+    # return result * 3 * (v_max ** 2) * (2 + gamma ** 2)  # * (2**(len(x_qubits) + len(y_qubits)))
+    return result * 5 * v_max**2 * vector_norm**2
 
 
 def value_loss_circuit(
@@ -215,7 +168,7 @@ def value_loss_circuit(
     ancilla_qubits = value_indices_qubits + next_x_qubits + next_y_qubits + [value_qubit] + extra_x_qubits + extra_y_qubits + swap_vector_qubits + [loss_qubit]
 
     # Determine next action
-    action_qnn.circuit([], x_qubits + y_qubits, action_qubits, ancilla_qubits=ancilla_qubits, unclean_qubits=unclean_qubits)
+    # action_qnn.circuit([], x_qubits + y_qubits, action_qubits, ancilla_qubits=ancilla_qubits, unclean_qubits=unclean_qubits)
     qml.Snapshot("Chose action")
 
     ancilla_qubits = ancilla_qubits[len(value_indices_qubits):]     # Remove value indices qubits
@@ -232,6 +185,7 @@ def value_loss_circuit(
         ancilla_wires=ancilla_qubits,
         unclean_wires=unclean_qubits + x_qubits + y_qubits + action_qubits
     ).circuit()
+    qml.Snapshot(f"Load indices {','.join([str(el) for el in value_indices_qubits])}")
 
     r_factor = [1 / v_max]
 
@@ -245,7 +199,21 @@ def value_loss_circuit(
         value_indices_qubits, [value_qubit], r_factor,
         ancilla_qubits, unclean_qubits
     )
-    qml.Snapshot(f"After env. Set r on indices {''.join([str(el) for el in value_indices_qubits])}=11")
+
+    # adaptive_ccnot(
+    #     value_indices_qubits,
+    #     ancilla_qubits[1:],
+    #     unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+    #     ancilla_qubits[0]
+    # )
+    # qml.CNOT(wires=(ancilla_qubits[0], value_qubit))
+    # adaptive_ccnot(
+    #     value_indices_qubits,
+    #     ancilla_qubits[1:],
+    #     unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+    #     ancilla_qubits[0]
+    # )
+    qml.Snapshot(f"After env. Set r on indices {','.join([str(el) for el in value_indices_qubits])}=111")
 
     ancilla_qubits = ancilla_qubits[len(extra_x_qubits) + len(extra_y_qubits):]     # Remove extra_x_qubits and extra_y_qubits
     # Correctly prep extra x (resp. y) qubits register
@@ -254,14 +222,18 @@ def value_loss_circuit(
     for x_c_q, y_c_q, x_t_q, y_t_q1 in zip(x_qubits, y_qubits, extra_x_qubits, extra_y_qubits):
         qml.Toffoli(wires=(value_indices_qubits[0], x_c_q, x_t_q))
         qml.Toffoli(wires=(value_indices_qubits[0], y_c_q, y_t_q1))
+
+    # for extra_x_q, extra_y_q in zip(extra_x_qubits, extra_y_qubits):
+    #     qml.CRY(phi=torch.pi/2., wires=(value_indices_qubits[0], extra_x_q))
+    #     qml.CRY(phi=torch.pi/2., wires=(value_indices_qubits[0], extra_y_q))
     qml.PauliX((value_indices_qubits[0],))
 
     # extra qubits for reward to |+>
-    adaptive_ccnot(value_indices_qubits, ancilla_qubits[1:], unclean_qubits + x_qubits + y_qubits + action_qubits, ancilla_qubits[0])
-    for extra_x_q, extra_y_q in zip(extra_x_qubits, extra_y_qubits):
-        qml.CRY(phi=torch.pi, wires=(ancilla_qubits[0], extra_x_q))
-        qml.CRY(phi=torch.pi, wires=(ancilla_qubits[0], extra_y_q))
-    adaptive_ccnot(value_indices_qubits, ancilla_qubits[1:], unclean_qubits + x_qubits + y_qubits + action_qubits, ancilla_qubits[0])
+    # adaptive_ccnot(value_indices_qubits, ancilla_qubits[1:], unclean_qubits + x_qubits + y_qubits + action_qubits, ancilla_qubits[0])
+    # for extra_x_q, extra_y_q in zip(extra_x_qubits, extra_y_qubits):
+    #     qml.CRY(phi=torch.pi/2., wires=(ancilla_qubits[0], extra_x_q))
+    #     qml.CRY(phi=torch.pi/2., wires=(ancilla_qubits[0], extra_y_q))
+    # adaptive_ccnot(value_indices_qubits, ancilla_qubits[1:], unclean_qubits + x_qubits + y_qubits + action_qubits, ancilla_qubits[0])
 
     # Next state is already set
     qml.PauliX((value_indices_qubits[1],))
@@ -282,6 +254,19 @@ def value_loss_circuit(
         unclean_qubits=unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
         end_state_values=end_state_values
     )
+    # adaptive_ccnot(
+    #     value_indices_qubits,
+    #     ancilla_qubits[1:],
+    #     unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+    #     ancilla_qubits[0]
+    # )
+    # qml.CNOT(wires=(ancilla_qubits[0], value_qubit))
+    # adaptive_ccnot(
+    #     value_indices_qubits,
+    #     ancilla_qubits[1:],
+    #     unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+    #     ancilla_qubits[0]
+    # )
     qml.PauliX((value_indices_qubits[2],))
 
     # Load conjugate state value into value_indices_qubits 011
@@ -295,8 +280,21 @@ def value_loss_circuit(
         end_state_values=end_state_values,
         conjugate=True,
     )
+    # adaptive_ccnot(
+    #     value_indices_qubits,
+    #     ancilla_qubits[1:],
+    #     unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+    #     ancilla_qubits[0]
+    # )
+    # qml.CNOT(wires=(ancilla_qubits[0], value_qubit))
+    # adaptive_ccnot(
+    #     value_indices_qubits,
+    #     ancilla_qubits[1:],
+    #     unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+    #     ancilla_qubits[0]
+    # )
     qml.PauliX((value_indices_qubits[0],))
-    qml.Snapshot(f"Set v(s) on indices {''.join([str(el) for el in value_indices_qubits])}=10")
+    qml.Snapshot(f"Set v(s) on indices {','.join([str(el) for el in value_indices_qubits])}=010 and 011")
 
     # Load next state value into value_indices_qubits 100
     qml.PauliX((value_indices_qubits[1],))
@@ -310,6 +308,19 @@ def value_loss_circuit(
         unclean_qubits=unclean_qubits + x_qubits + y_qubits + action_qubits,
         end_state_values=end_state_values,
     )
+    # adaptive_ccnot(
+    #     value_indices_qubits,
+    #     ancilla_qubits[1:],
+    #     unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+    #     ancilla_qubits[0]
+    # )
+    # qml.CNOT(wires=(ancilla_qubits[0], value_qubit))
+    # adaptive_ccnot(
+    #     value_indices_qubits,
+    #     ancilla_qubits[1:],
+    #     unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+    #     ancilla_qubits[0]
+    # )
     qml.PauliX((value_indices_qubits[2],))
 
     # Load conjugate next state value into value_indices_qubits 101
@@ -323,9 +334,23 @@ def value_loss_circuit(
         end_state_values=end_state_values,
         conjugate=True,
     )
+
+    # adaptive_ccnot(
+    #     value_indices_qubits,
+    #     ancilla_qubits[1:],
+    #     unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+    #     ancilla_qubits[0]
+    # )
+    # qml.CNOT(wires=(ancilla_qubits[0], value_qubit))
+    # adaptive_ccnot(
+    #     value_indices_qubits,
+    #     ancilla_qubits[1:],
+    #     unclean_qubits + next_x_qubits + next_y_qubits + action_qubits,
+    #     ancilla_qubits[0]
+    # )
     qml.PauliX((value_indices_qubits[1],))
 
-    qml.Snapshot(f"Set v(s') on indices {''.join([str(el) for el in value_indices_qubits])}=01")
+    qml.Snapshot(f"Set v(s') on indices {','.join([str(el) for el in value_indices_qubits])}=100 and 101")
 
     # Load swap vector
     ancilla_qubits = ancilla_qubits[len(swap_vector_qubits):]   # Remove swap_vector_qubits
@@ -350,6 +375,8 @@ def value_loss_circuit(
     qml.Snapshot(f"Loaded swap vector")
 
     ancilla_qubits = ancilla_qubits[1:]  # Remove loss_qubit
+    # print(f"swap_vector_qubits: {swap_vector_qubits}")
+    # print(f"other reg: {extra_x_qubits + extra_y_qubits + value_indices_qubits + [value_qubit]}")
     swap_test(loss_qubit, extra_x_qubits + extra_y_qubits + value_indices_qubits + [value_qubit], swap_vector_qubits)
     qml.Snapshot(f"Swap test")
 
@@ -540,7 +567,8 @@ def action_loss(
     #
     #     # print(qml.draw(qnode)())
 
-    return torch.sqrt(result) * 2 * vector_norm * v_max   # * (2**((len(x_qubits) + len(y_qubits)))) # * (2 ** (len(x_qubits) + len(y_qubits)))
+    # return torch.sqrt(result) * 2 * vector_norm * v_max     # This is the correct loss, if only one state is loaded
+    return result * 4 * vector_norm**2 * v_max**2       # Since multiple states are loaded, we cannot take the sqrt
 
 
 def loss_function(

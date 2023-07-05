@@ -71,20 +71,20 @@ def train_with_two_opt(
                 print(f"loss: {loss}")
 
                 # backpropagation, adjust weights
-                # print("Backprop")
-                # loss.backward()
-                #
-                # # print(f"action grads: {action_qnn.in_q_parameters.grad}")
-                # # value_grads.append(value_qnn.in_q_parameters.grad.detach().clone())
-                #
-                # print("Optimize")
-                # if itr_type == 1:
-                #     action_optimizer.step()
-                # elif itr_type == 2:
-                #     value_optimizer.step()
-                # else:
-                #     action_optimizer.step()
-                #     value_optimizer.step()
+                print("Backprop")
+                loss.backward()
+
+                # print(f"action grads: {action_qnn.in_q_parameters.grad}")
+                # value_grads.append(value_qnn.in_q_parameters.grad.detach().clone())
+
+                print("Optimize")
+                if itr_type == 1:
+                    action_optimizer.step()
+                elif itr_type == 2:
+                    value_optimizer.step()
+                else:
+                    action_optimizer.step()
+                    value_optimizer.step()
 
                 frames.append(get_frozen_lake_frame(
                     loss_fn_params["environment"], action_qnn, value_qnn,
