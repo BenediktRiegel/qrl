@@ -159,7 +159,10 @@ def train_with_two_opt(
                     loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=3)
                     losses.append([loss[0].item(), loss[1].item()])
                     loss = loss[itr_type - 1]
-                elif itr_type >= 3:
+                elif itr_type == 3:
+                    loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=3)
+                    losses.append([loss[0].item(), loss[1].item()])
+                elif itr_type >= 4:
                     loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=itr_type)
                     losses.append([loss.item()])
                 print(f"losses: {losses[-1]}")
