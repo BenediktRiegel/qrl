@@ -104,8 +104,8 @@ def rot_swap_main():
         # ],
     ]
     for idx, map in enumerate(maps):
-        fig_path = f"plots/test_fig{idx}.html"
-        loss_path = f"plots/test_loss{idx}.html"
+        fig_path = f"plots/itr_type3_fig{idx}.html"
+        loss_path = f"plots/itr_type3_loss{idx}.html"
         print("prepare environment")
         map = [el for el in reversed(map)]
         environment = FrozenLakeRotSwap(map, slip_probabilities, default_reward=default_reward, r_qubit_is_clean=True)
