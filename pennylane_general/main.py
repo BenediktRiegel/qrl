@@ -22,7 +22,7 @@ def rot_swap_main():
     # sub_iterations = [(2, 2)]
     # sub_iterations = [(50, 4)]
     # sub_iterations = [(1, 2)]
-    precise = True
+    precise = False
     end_state_values = False
     action_qnn_depth = 1
     value_qnn_depth = 1

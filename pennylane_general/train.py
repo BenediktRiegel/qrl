@@ -64,7 +64,7 @@ def train_with_two_opt(
                     loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=3)
                     losses.append([loss[0].item(), loss[1].item()])
                     loss = loss[itr_type - 1]
-                elif itr_type >= 4:
+                elif itr_type >= 3:
                     loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=itr_type)
                     losses.append([loss.item()])
                 print(f"losses: {losses[-1]}")
@@ -72,7 +72,11 @@ def train_with_two_opt(
 
                 # backpropagation, adjust weights
                 print("Backprop")
-                loss.backward()
+                if itr_type == 3:
+                    loss[0].backward()
+                    loss[1].backward()
+                else:
+                    loss.backward()
 
                 # print(f"action grads: {action_qnn.in_q_parameters.grad}")
                 # value_grads.append(value_qnn.in_q_parameters.grad.detach().clone())
@@ -118,8 +122,8 @@ def train_with_two_opt(
         # action_scheduler.step()
         # time
         print(value_grads)
-        if i >= 3:
-            loss_fn_params["backend"].shots = min(loss_fn_params["backend"].shots*2, 10000000)
+        # if i >= 3:
+        #     loss_fn_params["backend"].shots = min(loss_fn_params["backend"].shots*2, 10000000)
         total_it_time = time.time() - start_it_time
         minutes_it = total_it_time // 60
         seconds_it = round(total_it_time - minutes_it * 60)

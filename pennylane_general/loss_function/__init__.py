@@ -589,6 +589,11 @@ def loss_function(
         value_diff_method: str = "best",
 ):
     state_size = len(x_qubits) + len(y_qubits)
+
+    grad_values = []
+    for parameter in value_qnn.parameters():
+        grad_values.append(parameter.requires_grad)
+        parameter.requires_grad = False
     loss1 = action_loss(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits,
         next_x_qubits, next_y_qubits,
@@ -598,6 +603,13 @@ def loss_function(
         diff_method=action_diff_method,
         snaps=False,
     )
+    for parameter, grad in zip(value_qnn.parameters(), grad_values):
+        parameter.requires_grad = grad
+
+    grad_values = []
+    for parameter in action_qnn.parameters():
+        grad_values.append(parameter.requires_grad)
+        parameter.requires_grad = False
     loss2 = value_loss(
         action_qnn, value_qnn, environment, x_qubits, y_qubits, action_qubits,
         next_x_qubits, next_y_qubits,
@@ -606,6 +618,9 @@ def loss_function(
         backend, gamma, eps, unclean_qubits=unclean_qubits, precise=precise, end_state_values=end_state_values,
         diff_method=value_diff_method,
     )
+    for parameter, grad in zip(action_qnn.parameters(), grad_values):
+        parameter.requires_grad = grad
+
     if l_type >= 4:
         return lam * loss1 + loss2
 
