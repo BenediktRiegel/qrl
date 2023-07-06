@@ -208,8 +208,8 @@ def train_with_two_opt(
                 seconds_it = round(total_sub_it_time - minutes_it * 60)
 
                 print(
-                    "Time: {:.4f} min {:.4f} sec with loss: {:.4f} on the training data\n".format(
-                        minutes_it, seconds_it, loss.item()
+                    "Time: {:.4f} min {:.4f} sec with on the training data\n".format(
+                        minutes_it, seconds_it
                     )
                 )
                 if total_itr == 5:
