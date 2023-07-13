@@ -33,7 +33,7 @@ class FrozenField:
 
     @staticmethod
     def get_hole():
-        return FrozenField(reward=-1, end=True)
+        return FrozenField(reward=0, end=True)
 
     @staticmethod
     def get_end():

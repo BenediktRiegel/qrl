@@ -5,12 +5,12 @@ from numpy import cos
 
 def update_plots(fig_path, loss_path, environment, gamma, frames, losses):
     fig = plot_animated_frozen_lake(environment, frames, gamma)
-    with open(fig_path, "w", encoding="utf-8") as f:
+    with fig_path.open("w", encoding="utf-8") as f:
         f.write(fig.to_html())
         f.close()
 
     fig = plot_loss(losses)
-    with open(loss_path, "w", encoding="utf-8") as f:
+    with loss_path.open("w", encoding="utf-8") as f:
         f.write(fig.to_html())
         f.close()
 

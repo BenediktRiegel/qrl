@@ -1,5 +1,7 @@
+from pathlib import Path
 from numpy import ceil, log2
 from torch import save, load
+from json import dump as json_save
 import torch
 from torch.optim.lr_scheduler import StepLR
 from optimizer import OptimizerEnum
@@ -13,191 +15,137 @@ from loss_function.rot_swap_loss import loss_function as rot_swap_loss_function
 from wire_utils import get_wires
 # from visualize import get_frozen_lake_frame, plot_animated_frozen_lake, plot_loss
 from visualize.rot_swap_value import get_action_probs, get_frozen_lake_frame, plot_animated_frozen_lake, plot_loss
+from load_config import load_config, load_map
 
 
-def rot_swap_main():
-    num_iterations = 12
+def rot_swap_main(config_path: Path, config: dict):
+    num_iterations = config["num_iterations"]
     # 1: action, 2: value, 3: return both, 4: lam * action + value
-    sub_iterations = [(50, 3)]
-    # sub_iterations = [(2, 2)]
-    # sub_iterations = [(50, 4)]
-    # sub_iterations = [(1, 2)]
-    precise = False
-    end_state_values = False
-    action_qnn_depth = 1
-    value_qnn_depth = 1
-    value_optimizer_enum = OptimizerEnum.adam
-    action_optimizer_enum = OptimizerEnum.adam
-    # value_optimizer_enum = OptimizerEnum.sgd
-    # action_optimizer_enum = OptimizerEnum.sgd
-    value_lr = 0.5
-    action_lr = 0.5
-    default_reward = -0.01
-    gamma = 0.8
-    eps = 0.0
-    lam = 0.8
-    backend_enum = QuantumBackends.pennylane_lightning_kokkos
-    # backend_enum = QuantumBackends.pennylane_default_qubic
-    # backend_enum = QuantumBackends.pennylane_lightning_qubit
-    shots = 100000
-    action_diff_method = "best"
-    value_diff_method = "best"
-    # action_diff_method = "parameter-shift"
-    # value_diff_method = "parameter-shift"
-    # shots = None
+    sub_iterations = config["sub_iterations"]
+    precise = config["precise"]
+    end_state_values = config["end_state_values"]
+    action_qnn_depth = config["action_qnn_depth"]
+    value_qnn_depth = config["value_qnn_depth"]
+    value_optimizer_enum = OptimizerEnum(config["value_optimizer"])
+    action_optimizer_enum = OptimizerEnum(config["action_optimizer"])
+    value_lr = config["value_lr"]
+    action_lr = config["action_lr"]
+    default_reward = config["default_reward"]
+    gamma = config["gamma"]
+    eps = config["eps"]
+    lam = config["lam"]
+    backend_enum = QuantumBackends(config["backend"])
+    shots = config["shots"]
+    action_diff_method = config["action_diff_method"]  # best, adjoint, parameter-shift
+    value_diff_method = config["value_diff_method"]  # best, adjoint, parameter-shift
+    slip_probabilities = config["slip_probabilities"]
+    map = load_map(config["map"])
+    output_dir = Path(config["output_dir"])
 
-    if precise:
-        backend_enum = QuantumBackends.pennylane_default_qubit
-        shots = None
-    # main direction, next are the directions in clockwise order,
-    # e.g. main direction is right, then slip probs correspond to [right, down, left, up]
-    slip_probabilities = [1. / 3., 1. / 3., 0., 1. / 3.]
-    # slip_probabilities = [0.5, 0.25, 0., 0.25]
-    # slip_probabilities = [1., 0., 0., 0.]
-    # map = [
-    #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
-    #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
-    #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
-    #     [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
-    # ]
-    # map = [
-    #     [FrozenField.get_ice(), FrozenField.get_ice()],
-    #     [FrozenField.get_hole(), FrozenField.get_end()],
-    # ]
-    # map = [
-    #     [FrozenField(reward=-1), FrozenField(reward=1)],
-    #     [FrozenField(reward=0), FrozenField(reward=0)]
-    # ]
-    # map = [[FrozenField(reward=-1), FrozenField(reward=0.5)]]
-    # map = [
-    #     [FrozenField.get_ice(), FrozenField.get_ice()],
-    #     [FrozenField.get_hole(), FrozenField.get_ice()],
-    #     [FrozenField.get_ice(), FrozenField.get_ice()],
-    #     [FrozenField.get_end(), FrozenField.get_hole()],
-    # ]
-    maps = [
-        # [
-        #     [FrozenField.get_end(), FrozenField.get_ice()],
-        # ],
-        [
-            [FrozenField.get_ice(), FrozenField.get_ice()],
-            [FrozenField.get_hole(), FrozenField.get_end()],
-        ],
-        # [
-        #     [FrozenField.get_end(), FrozenField.get_ice(), FrozenField.get_hole()]
-        # ],
-        # [
-        #     [FrozenField.get_ice(), FrozenField.get_ice()],
-        #     [FrozenField.get_hole(), FrozenField.get_ice()],
-        #     [FrozenField.get_ice(), FrozenField.get_ice()],
-        #     [FrozenField.get_end(), FrozenField.get_hole()],
-        # ],
-        # [
-        #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_end()],
-        #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
-        # ],
-        # [
-        #     [FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_end()],
-        #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_hole()],
-        #     [FrozenField.get_ice(), FrozenField.get_hole(), FrozenField.get_ice(), FrozenField.get_hole()],
-        #     [FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice(), FrozenField.get_ice()],
-        # ],
-    ]
-    for idx, map in enumerate(maps):
-        fig_path = f"plots/itr_type3_fig{idx}.html"
-        loss_path = f"plots/itr_type3_loss{idx}.html"
-        print("prepare environment")
-        map = [el for el in reversed(map)]
-        environment = FrozenLakeRotSwap(map, slip_probabilities, default_reward=default_reward, r_qubit_is_clean=True)
+    output_dir.mkdir(parents=True, exist_ok=False)
 
-        log_rows = int(ceil(log2(len(map))))
-        log_cols = int(ceil(log2(len(map[0]))))
+    fig_path = output_dir / "fig.html"
+    loss_path = output_dir / "loss.html"
+    print("prepare environment")
+    map = [el for el in reversed(map)]
+    environment = FrozenLakeRotSwap(map, slip_probabilities, default_reward=default_reward, r_qubit_is_clean=True)
 
-        # Loss function
-        # wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, len(r_qubit_interpretation), len(r_qubit_interpretation)+3, len(r_qubit_interpretation)+3])
-        # x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, r_qubits, value_qubits, next_value_qubits = wires
-        # Loss function2
-        # wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 10])
-        wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 7])
-        x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, ancilla_qubits = wires
-        backend = backend_enum.get_pennylane_backend("", "", total_num_wires, shots)
-        print(f"{total_num_wires} qubits")
+    log_rows = int(ceil(log2(len(map))))
+    log_cols = int(ceil(log2(len(map[0]))))
 
-        print("prepare qnn")
-        # action_qnn = QNN(len(x_qubits), len(action_qubits), action_qnn_depth)
-        action_qnn = RYQNN_Excessive(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth,
-                                     WeightInitEnum.standard_normal)
-        # action_qnn.in_q_parameters = load("./action_qnn/param0")
-        value_qnn = CCRYQNN_Excessive(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
-        # value_qnn.in_q_parameters = load("./value_qnn/param0")
-        # action_qnn = RYQNN_D(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
-        # value_qnn = CCRYQNN_D(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
-        print(f"value_qnn parameters: ")
-        for p in value_qnn.parameters():
-            print(p)
-        # optimizer = optimizer.get_optimizer(action_qnn.parameters() + value_qnn.parameters(), lr)
-        value_optimizer = value_optimizer_enum.get_optimizer(value_qnn.parameters(), value_lr)
-        value_scheduler = StepLR(value_optimizer, step_size=1, gamma=2.)
-        action_optimizer = action_optimizer_enum.get_optimizer(action_qnn.parameters(), action_lr)
-        action_scheduler = StepLR(value_optimizer, step_size=1, gamma=2.)
-        loss_fn = rot_swap_loss_function
+    # Loss function
+    # wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, len(r_qubit_interpretation), len(r_qubit_interpretation)+3, len(r_qubit_interpretation)+3])
+    # x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, r_qubits, value_qubits, next_value_qubits = wires
+    # Loss function2
+    # wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 10])
+    wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 7])
+    x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, ancilla_qubits = wires
+    backend = backend_enum.get_pennylane_backend("", "", total_num_wires, shots)
+    print(f"{total_num_wires} qubits")
 
-        # fig = plot_frozen_lake(environment, action_qnn, len(x_qubits), len(y_qubits))
-        # fig.show()
+    print("prepare qnn")
+    # action_qnn = QNN(len(x_qubits), len(action_qubits), action_qnn_depth)
+    action_qnn = RYQNN_Excessive(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth,
+                                 WeightInitEnum.standard_normal)
+    # action_qnn.in_q_parameters = load("./action_qnn/param0")
+    value_qnn = CCRYQNN_Excessive(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
+    # value_qnn.in_q_parameters = load("./value_qnn/param0")
+    # action_qnn = RYQNN_D(len(x_qubits) + len(y_qubits), len(action_qubits), action_qnn_depth, WeightInitEnum.standard_normal)
+    # value_qnn = CCRYQNN_D(len(x_qubits) + len(y_qubits), value_qnn_depth, WeightInitEnum.standard_normal)
+    print(f"value_qnn parameters: ")
+    for p in value_qnn.parameters():
+        print(p)
+    # optimizer = optimizer.get_optimizer(action_qnn.parameters() + value_qnn.parameters(), lr)
+    value_optimizer = value_optimizer_enum.get_optimizer(value_qnn.parameters(), value_lr)
+    value_scheduler = StepLR(value_optimizer, step_size=1, gamma=2.)
+    action_optimizer = action_optimizer_enum.get_optimizer(action_qnn.parameters(), action_lr)
+    action_scheduler = StepLR(value_optimizer, step_size=1, gamma=2.)
+    loss_fn = rot_swap_loss_function
 
-        loss_function_params = dict(
-            environment=environment,
-            x_qubits=x_qubits, y_qubits=y_qubits, action_qubits=action_qubits,
-            next_x_qubits=next_x_qubits, next_y_qubits=next_y_qubits,
-            ancilla_qubits=ancilla_qubits,
-            unclean_qubits=[],
-            backend=backend,
-            gamma=gamma, lam=lam,
-            eps=eps,
-            precise=precise,
-            end_state_values=end_state_values,
-            action_diff_method=action_diff_method,
-            value_diff_method=value_diff_method,
-        )
+    # fig = plot_frozen_lake(environment, action_qnn, len(x_qubits), len(y_qubits))
+    # fig.show()
 
-        frames, losses = train_with_two_opt(
-            loss_fn, value_optimizer, action_optimizer, value_scheduler, action_scheduler,
-            num_iterations, sub_iterations, action_qnn, value_qnn,
-            loss_function_params, fig_path, loss_path
-        )
-        frames = frames + [get_frozen_lake_frame(environment, action_qnn, value_qnn, len(x_qubits), len(y_qubits), gamma,
-                                        end_state_values)]
+    loss_function_params = dict(
+        environment=environment,
+        x_qubits=x_qubits, y_qubits=y_qubits, action_qubits=action_qubits,
+        next_x_qubits=next_x_qubits, next_y_qubits=next_y_qubits,
+        ancilla_qubits=ancilla_qubits,
+        unclean_qubits=[],
+        backend=backend,
+        gamma=gamma, lam=lam,
+        eps=eps,
+        precise=precise,
+        end_state_values=end_state_values,
+        action_diff_method=action_diff_method,
+        value_diff_method=value_diff_method,
+    )
 
-        for param in action_qnn.parameters():
-            param.requires_grad = False
-        temp = []
-        for y in range(len(map)):
-            temp.append([])
-            for x in range(len(map[0])):
-                probs = get_action_probs(x, y, action_qnn, len(x_qubits), len(y_qubits))
-                temp[-1].append({"right": probs[0], "down": probs[1], "left": probs[2], "up": probs[3]})
+    frames, losses = train_with_two_opt(
+        loss_fn, value_optimizer, action_optimizer, value_scheduler, action_scheduler,
+        num_iterations, sub_iterations, action_qnn, value_qnn,
+        loss_function_params, fig_path, loss_path
+    )
+    frames = frames + [get_frozen_lake_frame(environment, action_qnn, value_qnn, len(x_qubits), len(y_qubits), gamma,
+                                    end_state_values)]
 
-        print(f"True movements:")
-        print([el for el in reversed(temp)])
+    for param in action_qnn.parameters():
+        param.requires_grad = False
+    temp = []
+    for y in range(len(map)):
+        temp.append([])
+        for x in range(len(map[0])):
+            probs = get_action_probs(x, y, action_qnn, len(x_qubits), len(y_qubits))
+            temp[-1].append({"right": probs[0], "down": probs[1], "left": probs[2], "up": probs[3]})
 
-        for param in action_qnn.parameters():
-            param.requires_grad = True
+    print(f"True movements:")
+    print([el for el in reversed(temp)])
 
-        for i, param in enumerate(action_qnn.parameters()):
-            save(param, f"./action_qnn/param{i}")
-        for i, param in enumerate(value_qnn.parameters()):
-            save(param, f"./value_qnn/param{i}")
+    for param in action_qnn.parameters():
+        param.requires_grad = True
 
-        fig = plot_animated_frozen_lake(environment, frames, gamma)
-        with open(fig_path, "w", encoding="utf-8") as f:
-            f.write(fig.to_html())
-            f.close()
+    for i, param in enumerate(action_qnn.parameters()):
+        save(param, output_dir / f"action_qnn_param{i}")
+    for i, param in enumerate(value_qnn.parameters()):
+        save(param, output_dir / f"value_qnn_param{i}")
 
-        fig = plot_loss(losses)
-        with open(loss_path, "w", encoding="utf-8") as f:
-            f.write(fig.to_html())
-            f.close()
+    fig = plot_animated_frozen_lake(environment, frames, gamma)
+    with fig_path.open("w", encoding="utf-8") as f:
+        f.write(fig.to_html())
+        f.close()
+
+    fig = plot_loss(losses)
+    with loss_path.open("w", encoding="utf-8") as f:
+        f.write(fig.to_html())
+        f.close()
+
+    with (output_dir / "config.json").open("w") as f:
+        json_save(config, f)
+        f.close()
+
+    config_path.unlink()
 
 
 if __name__ == "__main__":
-    rot_swap_main()
+    path_dir = Path("./configs/")
+    for config_path, config in load_config(path_dir):
+        rot_swap_main(config_path, config)
