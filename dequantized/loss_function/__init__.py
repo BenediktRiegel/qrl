@@ -34,8 +34,7 @@ def sample_actions(states, action_qnn: QNN, action_backend, action_qubits, diff_
     def circuit(s):
         action_qnn.circuit([], s, action_qubits[0], action_qubits[1], action_qubits[2])
         return qml.sample(wires=action_qubits[0])
-
-    return [qml.QNode(circuit, action_backend, interface="torch", diff_method=diff_method)(_s)[0] for _s in states]
+    return [qml.QNode(circuit, action_backend, interface="torch", diff_method=diff_method)(_s) for _s in states]
 
 
 def value_loss_circuit(
@@ -136,8 +135,8 @@ def value_loss(
     for parameter in gradient_free_value_qnn.parameters():
         parameter.requires_grad = False
 
-    states = environment.get_random_state(shots)
-    actions = sample_actions(states, action_qnn, action_backend, action_qubits)
+    states = environment.get_random_states(shots)
+    actions = sample_actions(states, action_qnn, action_backend, action_qubits, diff_method)
     next_states_and_rewards = [environment.sample_transition(s, a) for (s, a) in zip(states, actions)]
 
     def circuit(state, action, next_state, reward):
@@ -247,9 +246,15 @@ def action_loss(
     for parameter in gradient_free_value_qnn.parameters():
         parameter.requires_grad = False
 
-    states = environment.get_random_state(shots)
-    actions = sample_actions(states, action_qnn, action_backend, action_qubits[:4], action_qubits[4:])
+    states = environment.get_random_states(shots)
+    # print(f"states: {states}")
+    # print(f"states[0]: {states[0]}")
+    actions = sample_actions(states, action_qnn, action_backend, action_qubits, diff_method)
+    # print(f"actions: {actions}")
+    # print(f"actions[0]: {actions[0]}")
     next_states_and_rewards = [environment.sample_transition(s, a) for (s, a) in zip(states, actions)]
+    # print(f"next_states_and_rewards: {next_states_and_rewards}")
+    # print(f"next_states_and_rewards[0]: {next_states_and_rewards[0]}")
 
     def circuit(next_state, reward):
         action_loss_circuit(
@@ -264,7 +269,7 @@ def action_loss(
             end_state_values=end_state_values,
         )
 
-        return qml.samples(wires=loss_qubit)
+        return qml.sample(wires=loss_qubit)
 
     result = torch.tensor([qml.QNode(circuit, value_backend, interface="torch", diff_method=diff_method)(s_, r)
                            for (s_, r) in next_states_and_rewards])

@@ -57,12 +57,13 @@ class FrozenLake:
     def sample_transition(self, s, a) -> Tuple[List[List[int]], List[int], float]:
         threshold = torch.rand(1)
         current_p = 0
-        a = int_to_bitlist(a, self.a_bits)
+        a = bitlist_to_int(a)
         slip_a = 0
         for idx, p in enumerate(self.slip_probabilities):
             current_p += p
             if threshold <= current_p:
                 slip_a = (idx + a) % 4
+                break
 
         x = bitlist_to_int(s[0])
         y = bitlist_to_int(s[1])
@@ -89,6 +90,9 @@ class FrozenLake:
         return x, y, r
 
     def get_random_states(self, num_states: int):
-        y = torch.tensor([int_to_bitlist(el, self.y_bits) for el in torch.randint(0, len(self.map), (num_states,))])
-        x = torch.tensor([int_to_bitlist(el, self.x_bits) for el in torch.randint(0, len(self.map[0]), (num_states,))])
-        return torch.vstack((x, y)).T
+        y = [int_to_bitlist(el, self.y_bits) for el in torch.randint(0, len(self.map), (num_states,))]
+        x = [int_to_bitlist(el, self.x_bits) for el in torch.randint(0, len(self.map[0]), (num_states,))]
+        return [[x[idx], y[idx]] for idx in range(num_states)]
+
+    def get_all_states(self):
+        return [[[x, y] for x in range(len(row))] for y, row in enumerate(self.map)]

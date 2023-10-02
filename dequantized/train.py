@@ -37,6 +37,7 @@ def train(
     for i in range(num_iterations):
         start_it_time = time.time()
         for type_itr, (num_sub_itr, itr_type) in enumerate(sub_iterations):
+            itr_type = 1 if (itr_type > 2 or itr_type < 1 or not itr_type) else itr_type
             for sub_i in range(num_sub_itr):
                 # total_itr += 1
                 start_sub_it_time = time.time()
@@ -57,28 +58,15 @@ def train(
 
                 # calculate loss
                 print("Calculate loss")
-                if itr_type is None:
-                    loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn)
-                elif itr_type <= 2:
-                    loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=3)
-                    losses.append([loss[0].item(), loss[1].item()])
-                    loss = loss[itr_type - 1]
-                elif itr_type == 3:
-                    loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=3)
-                    losses.append([loss[0].item(), loss[1].item()])
-                elif itr_type >= 4:
-                    loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn, l_type=itr_type)
-                    losses.append([loss.item()])
+                loss = loss_fn(**loss_fn_params, action_qnn=action_qnn, value_qnn=value_qnn)
+                losses.append([loss[0].item(), loss[1].item()])
+                loss = loss[itr_type - 1]
                 print(f"losses: {losses[-1]}")
                 print(f"loss: {loss}")
 
                 # backpropagation, adjust weights
                 print("Backprop")
-                if itr_type == 3:
-                    loss[0].backward()
-                    loss[1].backward()
-                else:
-                    loss.backward()
+                loss.backward()
 
                 # print(f"action grads: {action_qnn.in_q_parameters.grad}")
                 # value_grads.append(value_qnn.in_q_parameters.grad.detach().clone())

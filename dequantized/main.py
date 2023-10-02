@@ -34,7 +34,7 @@ def main(config_path: Path, config: dict):
     default_reward = config["default_reward"]
     gamma = config["gamma"]
     eps = config["eps"]
-    lam = config["lam"]
+    # lam = config["lam"]
     backend_enum = QuantumBackends(config["backend"])
     shots = config["shots"]
     action_diff_method = config["action_diff_method"]  # best, adjoint, parameter-shift
@@ -94,7 +94,8 @@ def main(config_path: Path, config: dict):
         value_backend=value_backend,
         action_backend=action_backend,
         shots=shots,
-        gamma=gamma, lam=lam,
+        gamma=gamma,
+        # lam=lam,
         eps=eps,
         precise=precise,
         end_state_values=end_state_values,
@@ -105,7 +106,7 @@ def main(config_path: Path, config: dict):
     frames, losses = train(
         loss_fn, value_optimizer, action_optimizer, value_scheduler, action_scheduler,
         num_iterations, sub_iterations, action_qnn, value_qnn,
-        loss_function_params, fig_path, loss_path, logger
+        loss_function_params, fig_path, loss_path, logger, environment.get_all_states()
     )
     # frames = frames + [get_frozen_lake_frame(environment, action_qnn, value_qnn, len(x_qubits), len(y_qubits), gamma,
     #                                          end_state_values)]
@@ -151,3 +152,12 @@ if __name__ == "__main__":
     path_dir = Path("./configs/")
     for config_path, config in load_config(path_dir):
         main(config_path, config)
+        # default_reward = config["default_reward"]
+        # slip_probabilities = config["slip_probabilities"]
+        # map = load_map(config["map"])
+        # map = [el for el in reversed(map)]
+        # environment = FrozenLake(map, [1, 0, 0, 0], default_reward=default_reward)
+        # states = [[[0], [0]], [[0], [1]], [[1], [0]], [[1], [1]]]
+        # for s in states:
+        #     print(f"{s} -> {environment.sample_transition(s, [0, 0])}")
+
