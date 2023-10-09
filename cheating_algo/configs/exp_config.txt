@@ -1,0 +1,1 @@
+{"num_iterations": 12, "sub_iterations": [[25, 2], [25, 1]], "precise": false, "end_state_values": false, "value_optimizer": "Adam", "action_optimizer": "Adam", "value_lr": 0.5, "action_lr": 0.5, "default_reward": 0.0, "gamma": 0.8, "eps": 0.1, "shots": 100000, "output_path": "./results/"}
