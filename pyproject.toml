@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "qrl"
+version = "0.1.0"
+description = ""
+authors = ["BenediktRiegel <Benedikt.Riegel@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+torch = ">=2.0.0, !=2.0.1"
+plotly = "^5.17.0"
+PennyLane = "^0.32.0"
+pandas = "^2.0.2"
+PennyLane-Lightning-Kokkos = "^0.32.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -34,6 +34,9 @@ class RYQNN_Excessive(QNN):
             ancilla_qubits: List[int],
             unclean_qubits: List[int],
     ):
+        # print(f"input_bits: {input_bits}")
+        # print(f"num_input_bits: {input_bits.shape}")
+        # print(f"self.in_q_parameters[{layer_num}, {r_idx}, {bitlist_to_int(input_bits)}]")
         q_param = self.in_q_parameters[layer_num, r_idx, bitlist_to_int(input_bits)]
         if control_qubits:
             adaptive_ccnot(control_qubits, ancilla_qubits[1:], unclean_qubits, ancilla_qubits[0])
@@ -42,14 +45,16 @@ class RYQNN_Excessive(QNN):
         else:
             qml.RY(phi=q_param, wires=(result_qubit,))
 
-    def circuit(self, control_qubits: List[int], input_bits: List[int], result_qubits: List[int], additional_qubits: List[int], ancilla_qubits: List[int], unclean_qubits: List[int] = None):
+    def circuit(self, control_qubits: List[int], input_bits: torch.tensor, result_qubits: List[int], additional_qubits: List[int], ancilla_qubits: List[int], unclean_qubits: List[int] = None):
         unclean_qubits = [] if unclean_qubits is None else unclean_qubits
         unclean_qubits += additional_qubits
+        input_bits = torch.tensor(input_bits) if not isinstance(input_bits, torch.Tensor) else input_bits
+        input_bits.flatten()
         for d in range(self.depth):
             for r_idx, r_qubit in enumerate(result_qubits[:self.num_result_qubits]):
                 self.layer(d, r_idx, control_qubits, input_bits, r_qubit, ancilla_qubits, unclean_qubits)
 
-    def conj_circuit(self, control_qubits: List[int], input_bits: List[int], result_qubits: List[int], additional_qubits: List[int], ancilla_qubits: List[int], unclean_qubits: List[int] = None):
+    def conj_circuit(self, control_qubits: List[int], input_bits: torch.tensor, result_qubits: List[int], additional_qubits: List[int], ancilla_qubits: List[int], unclean_qubits: List[int] = None):
         self.circuit(control_qubits, input_bits, result_qubits, additional_qubits, ancilla_qubits, unclean_qubits)
 
     def parameters(self):
