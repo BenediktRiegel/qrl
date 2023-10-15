@@ -284,16 +284,20 @@ def train(
 
     action_probs = [entry.tolist() for entry in get_policy(action_params)]
     state_values = (get_values(value_params, end_state_values) * get_v_max(gamma, end_state_values)).tolist()
-    logger.log(0, 0, 0, 0, 0, 0, 0, action_probs, state_values, value_params.grad.tolist(), action_params.grad.tolist())
+    logger.log(0, 0, 0, 0, 0, 0, 0, action_probs, state_values, value_params.grad.tolist(), action_params.grad.tolist(), 0, 0)
 
     total_start = time.time()
     for i in range(num_iterations):
         start_it_time = time.time()
-        for type_itr, (num_sub_itr, itr_type) in enumerate(sub_iterations):
+        for type_itr, (min_change, num_sub_itr, itr_type) in enumerate(sub_iterations):
             for sub_i in range(num_sub_itr):
                 start_sub_it_time = time.time()
 
                 print(f"Start iterations {i + 1}/{num_iterations}, type_itr: {type_itr + 1}/{len(sub_iterations)}, sub_iteration: {sub_i + 1}/{num_sub_itr}, l_type: {itr_type}")
+
+                print("copy parameters")
+                old_action_params = action_params.clone().detach()
+                old_value_params = value_params.clone().detach()
 
                 # calculate loss
                 print("Calculate loss")
@@ -323,11 +327,18 @@ def train(
                 a_grads = torch.zeros(action_params.shape) if action_params.grad is None else action_params.grad.clone()
 
                 print("Optimize")
+                value_params_change = 0
+                action_params_change = 0
+                insufficient_change = False
                 if itr_type == 1:
                     action_optimizer.step()
+                    action_params_change = torch.max(torch.abs(action_params - old_action_params)).item()
+                    insufficient_change = action_params_change < min_change
                     # print(f"action diff: {torch.linalg.norm(action_params - clone)}")
                 else:
                     value_optimizer.step()
+                    value_params_change = torch.max(torch.abs(value_params - old_value_params)).item()
+                    insufficient_change = value_params_change < min_change
                     # print(f"value diff: {torch.linalg.norm(value_params - clone)}")
 
                 # time
@@ -344,7 +355,10 @@ def train(
                 state_values = (get_values(value_params, end_state_values) * get_v_max(gamma, end_state_values)).tolist()
                 # v_grads = torch.zeros(value_params.shape) if value_params.grad is None else value_params.grad
                 # a_grads = torch.zeros(action_params.shape) if action_params.grad is None else action_params.grad
-                logger.log(i+1, type_itr, sub_i, total_sub_it_time, time.time() - total_start, value_loss.item(), action_loss.item(), action_probs, state_values, v_grads.tolist(), a_grads.tolist())
+                logger.log(i+1, type_itr, sub_i, total_sub_it_time, time.time() - total_start, value_loss.item(), action_loss.item(), action_probs, state_values, v_grads.tolist(), a_grads.tolist(), action_params_change, value_params_change)
+
+                if insufficient_change:
+                    break
 
         # time
         total_it_time = time.time() - start_it_time

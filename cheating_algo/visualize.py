@@ -257,6 +257,13 @@ def plot_value_grads(value_grads):
     return fig
 
 
+def plot_max_params_change(max_params_change):
+    max_params_change = np.array(max_params_change)
+    df = pd.DataFrame(max_params_change, columns=["action", "value"])
+    fig = px.line(df, title="Max Parameter Change")
+    return fig
+
+
 def create_visualizations(result_path: Path):
     config = _load_config(result_path / "config.json")
     gamma = config["gamma"]
@@ -281,6 +288,11 @@ def create_visualizations(result_path: Path):
     print("create value grad fig")
     with (result_path / "fig_value_grad.html").open("w", encoding="utf-8") as f:
         f.write(plot_value_grads([entry["value_grad"] for entry in log]).to_html())
+        f.close()
+
+    print("create max params change fig")
+    with (result_path / "fig_max_params_change.html").open("w", encoding="utf-8") as f:
+        f.write(plot_max_params_change([[entry["action_params_change"], entry["value_params_change"]] for entry in log]).to_html())
         f.close()
 
     print("create training fig")
