@@ -8,7 +8,6 @@ default_values = dict(
     num_iterations=12,
     # 1: action, 2: value, 3: return both, 4: lam * action + value
     sub_iterations=[(50, 2), (50, 1)],
-    precise=False,
     end_state_values=False,
     value_optimizer="Adam",
     action_optimizer="Adam",
@@ -18,6 +17,7 @@ default_values = dict(
     eps=0.0,
     shots=100000,
     qpe_qubits=0,
+    max_qpe_prob=0.8,
     output_path="./results/",
 )
 
