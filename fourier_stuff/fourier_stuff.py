@@ -1,5 +1,5 @@
 import numpy as np
-from plot import get_fig, get_heatmap
+from plot import get_fig, get_heatmap, get_matplotlib_heatmap
 import plotly.express as px
 import pandas as pd
 
@@ -59,8 +59,23 @@ def create_2d_plot(n_qubits, n_phases):
     return px.line(df, x="phase", y="closest_prob", title='')
 
 
+def create_matplotlib_plot(n_qubits, n_phases):
+    import matplotlib.mathtext as mathtext
+    N = 2**n_qubits
+    x = np.array(range(N))
+    y = np.linspace(-1, 1, n_phases)
+    z = np.empty((n_phases, N))
+    for i in range(z.shape[0]):
+        z[i] = get_probs(n_qubits, y[i])
+
+    return get_matplotlib_heatmap(x, y, z, f"Estimated Phase times $2^{n_qubits}$", "True Phase")
+
+
 def main():
-    create_plot(4, 2**12).show()
+    import matplotlib.pyplot as plt
+    create_matplotlib_plot(4, 2**20)
+    plt.tight_layout()
+    plt.savefig("./fourier.pdf", dpi="figure", format="pdf")
 
 
 if __name__ == "__main__":

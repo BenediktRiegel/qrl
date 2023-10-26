@@ -112,7 +112,8 @@ def compute_value_grad(value_params, P, R, gamma, shots):
 
 
 def compute_values(I, gamma, P, R):
-    return torch.linalg.inv(I - gamma * P) @ R
+    # return torch.linalg.inv(I - gamma * P) @ R
+    return torch.linalg.solve(I - gamma * P, R)
 
 
 def get_opt_policy(gamma):
@@ -129,7 +130,8 @@ def get_opt_policy(gamma):
         # Calc policy
         P = env @ get_policy_matrix(old_policy)
         R = get_reward_vector(P)
-        values = torch.linalg.inv(I - gamma * P) @ R
+        values = torch.linalg.solve(I - gamma * P.T, R)
+        # values = torch.linalg.inv(I - gamma * P) @ R
         # Update policy
         policy = torch.zeros((16, 4))
         for s, v in enumerate(values):
@@ -152,10 +154,17 @@ def get_next_s(policy, s):
     print({next_s: prob for next_s, prob in enumerate(probs) if prob != 0})
 
 
+def print_det_policy(pi):
+    a_list = ["right", "down", "left", "up"]
+    for s, actions in enumerate(pi):
+        print(f"{s}: {a_list[actions.argmax()]}")
+
+
 def main():
     gamma = 0.8
     policy, v = get_opt_policy(gamma)
     print(f"v: {v}")
+    print(f"policy:\n {print_det_policy(policy)}")
     env = get_env_matrix()
     I = torch.zeros((16, 16), dtype=torch.float64)
     for i in range(16):
@@ -163,35 +172,36 @@ def main():
     P = env @ get_policy_matrix(policy)
     R = get_reward_vector(P)
     print(f"R: {R}")
-    v2 = compute_values(I, gamma, env @ get_policy_matrix(policy), R)
+    v2 = compute_values(I, gamma, (env @ get_policy_matrix(policy)).T, R)
     print(f"v2: {v2}")
     print(f"v - v2: {v - v2}")
-    get_next_s(policy, 7)
-    # policy = torch.tensor([
-    #     [1, 0, 0, 0],
-    #     [1, 0, 0, 0],
-    #     [1, 0, 0, 0],
-    #     [1, 0, 0, 0],
-    #     [0, 0, 0, 1],
-    #     [0, 1, 0, 0],
-    #     [0, 0, 1, 0],
-    #     [1, 0, 0, 0],
-    #     [0, 0, 1, 0],
-    #     [1, 0, 0, 0],
-    #     [1, 0, 0, 0],
-    #     [1, 0, 0, 0],
-    #     [0, 1, 0, 0],
-    #     [0, 0, 0, 1],
-    #     [0, 1, 0, 0],
-    #     [0, 0, 0, 1],
-    # ])
-    # env = get_env_matrix()
-    # I = torch.zeros((16, 16), dtype=torch.float64)
-    # for i in range(16):
-    #     I[i, i] = 1.
-    # P = env @ get_policy_matrix(policy)
-    # R = get_reward_vector(P)
-    # print(f"v1: {compute_values(I, gamma, P, R)}")
+    policy = torch.tensor([
+        [1, 0, 0, 0],   #0
+        [1, 0, 0, 0],   #1
+        [1, 0, 0, 0],   #2
+        [1, 0, 0, 0],   #3
+        [0, 0, 0, 1],   #4
+        [0, 1, 0, 0],   #5
+        [0, 0, 1, 0],   #6
+        [1, 0, 0, 0],   #7
+        [0, 0, 1, 0],   #8
+        [1, 0, 0, 0],   #9
+        [1, 0, 0, 0],   #10
+        [1, 0, 0, 0],   #11
+        [0, 0, 1, 0],   #12
+        [0, 0, 0, 1],   #13
+        [0, 0, 1, 0],   #14
+        [0, 0, 0, 1],   #15
+    ])
+    env = get_env_matrix()
+    I = torch.zeros((16, 16), dtype=torch.float64)
+    for i in range(16):
+        I[i, i] = 1.
+    pi = get_policy_matrix(policy)
+    P = env @ pi
+    R = get_reward_vector(P)
+    v = compute_values(I, gamma, P.T, R)
+    print(f"v1: {v}")
 
 
 if __name__ == "__main__":
