@@ -83,12 +83,15 @@ def main(config_path, config):
 
 def process_execution(worker_args):
     process_id, configs = worker_args
-    for config_path, config in configs:
+    total_configs = len(configs)
+    for idx, (config_path, config) in enumerate(configs):
+        print(f"id {process_id}: config {idx+1}/{total_configs}")
+        print(f"config_path: {config_path}\nconfig: {config}")
         # Redo output directory
         # Since we early determined the output directories at the same time, they are probably the same => We don't want that
         # Add process_id to output directory, to keep directory name unique
         sub_dir_str = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_id{process_id}"
-        output_dir = Path(config["output_path"]).parent / sub_dir_str
+        output_dir = Path(config["output_path"]) / sub_dir_str
         config["output_dir"] = str(output_dir.resolve())
         main(config_path, config)
         create_visualizations(Path(config["output_dir"]))
@@ -96,7 +99,7 @@ def process_execution(worker_args):
 
 if __name__ == "__main__":
     path_dir = Path("./configs/")
-    num_processes = 8
+    num_processes = 4
     if num_processes == 1:
         from visualize import main as vis_main
         for config_path, config in load_config(path_dir):
@@ -107,6 +110,8 @@ if __name__ == "__main__":
         # Divide work equally
         all_configs = list(load_config(path_dir))
         configs_per_process = int(ceil(len(all_configs) / num_processes))
+        print(f"total configs: {len(all_configs)}")
+        print(f"configs_per_process: {configs_per_process}")
 
         # Start processes
         ppe = ProcessPoolExecutor(max_workers=num_processes)

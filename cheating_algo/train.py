@@ -293,23 +293,23 @@ def train(
             for sub_i in range(num_sub_itr):
                 start_sub_it_time = time.time()
 
-                print(f"Start iterations {i + 1}/{num_iterations}, type_itr: {type_itr + 1}/{len(sub_iterations)}, sub_iteration: {sub_i + 1}/{num_sub_itr}, l_type: {itr_type}")
-
-                print("copy parameters")
+                # print(f"Start iterations {i + 1}/{num_iterations}, type_itr: {type_itr + 1}/{len(sub_iterations)}, sub_iteration: {sub_i + 1}/{num_sub_itr}, l_type: {itr_type}")
+                #
+                # print("copy parameters")
                 old_action_params = action_params.clone().detach()
                 old_value_params = value_params.clone().detach()
 
                 # calculate loss
-                print("Calculate loss")
+                # print("Calculate loss")
                 policy = get_policy(action_params, eps)
                 values = get_values(value_params, end_state_values)
                 next_values = values.clone().detach()
                 action_loss = sample_action_loss(policy, trans_model, next_values, gamma, end_state_values, shots, qpe_qubits, max_qpe_prob)
                 value_loss = sample_value_loss(policy, trans_model, values, next_values, gamma, end_state_values, shots, qpe_qubits, max_qpe_prob)
-                print(f"value_loss: {value_loss}, action_loss: {action_loss}")
+                # print(f"value_loss: {value_loss}, action_loss: {action_loss}")
 
                 # backpropagation, adjust weights
-                print("Compute gradient")
+                # print("Compute gradient")
                 if itr_type == 1:
                     action_optimizer.zero_grad()
                     compute_action_grad(action_params, values, trans_model, gamma, end_state_values, shots, qpe_qubits, max_qpe_prob)
@@ -326,7 +326,7 @@ def train(
                 v_grads = torch.zeros(value_params.shape) if value_params.grad is None else value_params.grad.clone()
                 a_grads = torch.zeros(action_params.shape) if action_params.grad is None else action_params.grad.clone()
 
-                print("Optimize")
+                # print("Optimize")
                 value_params_change = 0
                 action_params_change = 0
                 insufficient_change = False
@@ -346,11 +346,11 @@ def train(
                 minutes_it = total_sub_it_time // 60
                 seconds_it = round(total_sub_it_time - minutes_it * 60)
 
-                print(
-                    "Time: {:.4f} min {:.4f} sec with on the training data\n".format(
-                        minutes_it, seconds_it
-                    )
-                )
+                # print(
+                #     "Time: {:.4f} min {:.4f} sec with on the training data\n".format(
+                #         minutes_it, seconds_it
+                #     )
+                # )
                 action_probs = [entry.tolist() for entry in get_policy(action_params)]
                 state_values = (get_values(value_params, end_state_values) * get_v_max(gamma, end_state_values)).tolist()
                 # v_grads = torch.zeros(value_params.shape) if value_params.grad is None else value_params.grad
@@ -365,11 +365,11 @@ def train(
         minutes_it = total_it_time // 60
         seconds_it = round(total_it_time - minutes_it * 60)
 
-        print(
-            "Iter: {}/{} Time: {:.4f} min {:.4f} sec on the training data\n".format(
-                i + 1, num_iterations, minutes_it, seconds_it
-            )
-        )
+        # print(
+        #     "Iter: {}/{} Time: {:.4f} min {:.4f} sec on the training data\n".format(
+        #         i + 1, num_iterations, minutes_it, seconds_it
+        #     )
+        # )
 
     total_it_time = time.time() - total_start
     minutes_it = total_it_time // 60

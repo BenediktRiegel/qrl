@@ -23,9 +23,11 @@ default_values = dict(
 
 
 def _load_config(file_path: Path) -> dict:
-    config = default_values
+    config = deepcopy(default_values)
     old_file_dir = file_path.parent.resolve()
+    print(f"file_path: {file_path}")
     with file_path.open("r") as f:
+        print(f"file_path open und so")
         config.update(load(f))
         f.close()
 

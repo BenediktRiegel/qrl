@@ -3,7 +3,7 @@ from json import dump as json_dump
 
 def main():
     output_path = "./results/"
-    output_dir = "./results/"
+    output_dir = "./results/hyperparameter_search"
     end_state_values = True
     # 'num_iterations', 'sub_iterations', 'value_optimizer', 'action_optimizer', 'value_lr', 'action_lr', 'gamma', 'eps', 'shots', 'qpe_qubits', 'max_qpe_prob'
     num_iterations_list = [12, 24]
@@ -23,35 +23,36 @@ def main():
         for sub_iterations in sub_iterations_list:
             for value_optimizer in value_optimizer_list:
                 for action_optimizer in action_optimizer_list:
-                    for value_lr in value_lr_list:
-                        for action_lr in action_lr_list:
-                            for gamma in gamma_list:
-                                for eps in eps_list:
-                                    for shots in shots_list:
-                                        for qpe_qubits in qpe_qubits_list:
-                                            for max_qpe_prob in max_qpe_prob_list:
-                                                if not shots or (shots > 100 and qpe_qubits > 0):
-                                                    continue
-                                                config = dict(
-                                                    num_iterations=num_iterations,
-                                                    sub_iterations=sub_iterations,
-                                                    end_state_values=end_state_values,
-                                                    value_optimizer=value_optimizer,
-                                                    action_optimizer=action_optimizer,
-                                                    value_lr=value_lr,
-                                                    action_lr=action_lr,
-                                                    gamma=gamma,
-                                                    eps=eps,
-                                                    shots=shots,
-                                                    qpe_qubits=qpe_qubits,
-                                                    max_qpe_prob=max_qpe_prob,
-                                                    output_dir=output_dir,
-                                                    output_path=output_path,
-                                                )
-                                                with open(f"./configs/config{num}", "w") as f:
-                                                    json_dump(config, f)
-                                                    f.close()
-                                                num += 1
+                    for value_lr, action_lr in zip(value_lr_list, action_lr_list):
+                        # for action_lr in action_lr_list:
+                        for gamma in gamma_list:
+                            for eps in eps_list:
+                                for shots in shots_list:
+                                    for qpe_qubits in qpe_qubits_list:
+                                        for max_qpe_prob in max_qpe_prob_list:
+                                            if not shots or (shots > 100 and qpe_qubits > 0):
+                                                continue
+                                            config = dict(
+                                                num_iterations=num_iterations,
+                                                sub_iterations=sub_iterations,
+                                                end_state_values=end_state_values,
+                                                value_optimizer=value_optimizer,
+                                                action_optimizer=action_optimizer,
+                                                value_lr=value_lr,
+                                                action_lr=action_lr,
+                                                gamma=gamma,
+                                                eps=eps,
+                                                shots=shots,
+                                                qpe_qubits=qpe_qubits,
+                                                max_qpe_prob=max_qpe_prob,
+                                                output_dir=output_dir,
+                                                output_path=output_path,
+                                            )
+                                            with open(f"./configs/config{num}.json", "w") as f:
+                                                json_dump(config, f)
+                                                f.close()
+                                            num += 1
+    print(f"Created {num-1} configs")
 
 
 if __name__ == "__main__":
