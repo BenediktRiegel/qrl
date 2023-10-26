@@ -99,10 +99,12 @@ def process_execution(worker_args):
 
 if __name__ == "__main__":
     path_dir = Path("./configs/")
-    num_processes = 4
+    num_processes = 1
     if num_processes == 1:
         from visualize import main as vis_main
+        idx = 0
         for config_path, config in load_config(path_dir):
+            print(f"start config {idx}")
             main(config_path, config)
             vis_main()
     elif num_processes > 1:
