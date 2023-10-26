@@ -193,7 +193,8 @@ def get_qpe_output_prob(delta, l, N):
     exp2 = delta - l/N
     if exp2 == 0:
         return 1.0
-    return torch.square(torch.abs((1-torch.exp(2j*torch.pi*exp1)) / (1-torch.exp(2j*torch.pi*exp2)))) / N / N
+    result = (1-torch.exp(2j*torch.pi*exp1)) / (1-torch.exp(2j*torch.pi*exp2)) / N
+    return torch.square(result.real) + torch.square(result.imag)
 
 
 def best_phi_approximation(phi: torch.tensor, num_bits: int):
@@ -201,6 +202,7 @@ def best_phi_approximation(phi: torch.tensor, num_bits: int):
     b_bits = torch.zeros(num_bits)
     for bit in range(1, num_bits+1):
         phi *= 2
+        print(f"{phi.item()} >= 1.0 = {phi >= 1.0}")
         if phi >= 1.0:
             b_bits[bit-1] = 1
             phi -= 1
@@ -221,17 +223,20 @@ def sample_qpe(phi: torch.tensor, num_qubits: int, shots: int, max_prob: float):
     N = 2**num_qubits
     b = best_phi_approximation(phi, num_qubits)   # best phi approximation
     delta = phi - b
+    if delta == 0:
+        result_prob = torch.zeros(shots, dtype=torch.float64) + b
+        return result_prob
     if delta < 0:
         # return torch.zeros(shots) + (b / N)
         raise ValueError(f"delta must be greater or equal to 0, but got {phi} - {b} = {delta}")
     # print(f"phi-b/N = {phi - b/N}")
     threshold = torch.rand(shots)
-    result = torch.empty(shots)
+    result = torch.empty(shots, dtype=torch.float64)
     in_progress = torch.ones(shots, dtype=torch.bool)
     current_prob = 0
     num_itr = 0
-    for l1, l2 in zip(range(N // 2), range(1, N // 2 + 1)):
-        current_prob += get_qpe_output_prob(delta, l1, num_qubits)
+    for l1, l2 in zip(range(1, N // 2 + 1), range(0, N // 2)):
+        current_prob += get_qpe_output_prob(delta, l1, N)
         new_angle = b + l1 / N
         if new_angle > 1:
             new_angle -= 1
@@ -240,7 +245,7 @@ def sample_qpe(phi: torch.tensor, num_qubits: int, shots: int, max_prob: float):
         result[indices_in_progress] = chosen * new_angle
         in_progress[indices_in_progress] = (chosen == 0)
 
-        current_prob += get_qpe_output_prob(delta, l2, num_qubits)
+        current_prob += get_qpe_output_prob(delta, -l2, N)
         new_angle = b - l2 / N
         if new_angle < 0:
             new_angle += 1
@@ -262,9 +267,17 @@ def sample_qpe(phi: torch.tensor, num_qubits: int, shots: int, max_prob: float):
     return result
 
 
+def sample_q_advantage(phi: torch.tensor, num_qubits: int, shots: int, max_prob: float):
+    threshold = torch.floor(torch.rand(shots)+0.5)
+    num_phi = int(threshold.sum())
+    res1 = sample_qpe(phi, num_qubits, num_phi, max_prob)
+    res2 = sample_qpe(1-phi, num_qubits, shots - num_phi, max_prob)
+    return torch.cat((res1, res2))
+
+
 def qpe_one_prob(one_prob, num_qubits, shots, max_qpe_prob: float):
     theta = torch.arcsin(torch.sqrt(one_prob)) / torch.pi
-    qpe_theta = sample_qpe(theta, num_qubits, shots, max_qpe_prob)
+    qpe_theta = sample_q_advantage(theta, num_qubits, shots, max_qpe_prob)
     # print(f"theta: {theta}, qpe_theta: {qpe_theta}")
     new_one_prob = torch.square(torch.sin(qpe_theta*torch.pi))
     return new_one_prob
@@ -378,10 +391,9 @@ def train(
 
 
 if __name__ == "__main__":
-    phi = torch.tensor(0.23895668439977433, dtype=torch.float64)
+    phi = torch.tensor(0.125, dtype=torch.float64)
+    num_qubits = 2
+    shots = 100
+    max_prob = 0.80
     # ValueError: delta must be greater or equal to 0, but got 0.23895668439977433 - 0.23895668983459473 = -5.434820399274898e-09
-    small_b, big_b = best_phi_approximation(phi, 32)
-    delta = phi - small_b
-    print(f"{phi} - {small_b} = {delta}")
-    scaled_b = small_b*(2**32)
-    print(f"{scaled_b} - {big_b} = {scaled_b-big_b}")
+    print(qpe_one_prob(torch.tensor(0.5, dtype=torch.float64), 2, 100, 0.8))
