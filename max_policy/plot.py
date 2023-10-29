@@ -33,7 +33,7 @@ def get_matplotlib_heatmap(x, y, z, xlabel, ylabel, title=""):
     plot.set(xlabel=xlabel, ylabel=ylabel)
     plot.set(title=title)
 
-    phaseticklabels = ["0", "0.25", "0.5", "0.75", "1"]
+    phaseticklabels = ["0", "0.125", "0.25", "0.375", "0.5"]
     ticks = [0, (len(y)+1)//4, (len(y)+1)//2, 3*(len(y)+1)//4, len(y)]
     # yticklabels = ["-1", "-0.75", "-0.5", "-0.25", "0", "0.25", "0.5", "0.75", "1"]
     # yticks = [len(y), 7*(len(y)+1)//8, 3*(len(y)+1)//4, 5*(len(y)+1)//8, (len(y)+1)//2, 3*(len(y)+1)//8, (len(y)+1)//4, (len(y)+1)//8, 0]

@@ -95,9 +95,9 @@ def get_prob_of_receiving_max(phi1, phi2, num_qubits):
     result_prob2 /= 2
 
     for idx, value in enumerate(result_value1):
-        result_value1[idx] = 1 - value if value > 0.5 else value
+        result_value1[idx] = 1 - value if value < 0.5 else value
     for idx, value in enumerate(result_value2):
-        result_value2[idx] = 1 - value if value > 0.5 else value
+        result_value2[idx] = 1 - value if value < 0.5 else value
 
     max1_prob = 0
     equal_prob = 0
@@ -110,7 +110,7 @@ def get_prob_of_receiving_max(phi1, phi2, num_qubits):
                 max2_prob += p1*p2
             else:
                 equal_prob += p1*p2
-    return max1_prob, equal_prob, max2_prob, max1_prob+equal_prob+max2_prob
+    return max1_prob, equal_prob, max2_prob, equal_prob+max2_prob
 
 
 def get_prob_of_opt_max(phi1, phi2):
@@ -129,48 +129,90 @@ def get_prob_of_opt_max(phi1, phi2):
 
 def main():
     num_qubits = 4
-    num_phis = 2**(num_qubits+4)
-    phi1 = torch.arange(0, num_phis+1, dtype=torch.float64) / num_phis
-    phi2 = torch.arange(0, num_phis+1, dtype=torch.float64) / num_phis
+    num_phis = 2**(num_qubits+3)
+    phi1 = torch.arange(0, num_phis+1, dtype=torch.float64) / num_phis / 2.
+    phi2 = torch.arange(0, num_phis+1, dtype=torch.float64) / num_phis / 2.
     z = np.empty((len(phi1), len(phi2), 4))
-    # for idx1, p1 in enumerate(phi1):
-    #     for idx2, p2 in enumerate(phi2):
-    #         if (idx2 % 20) == 0:
-    #             print(f"{idx1+1}/{len(phi1)}, {idx2+1}/{len(phi2)}")
-    #         z[idx1, idx2, :] = get_prob_of_receiving_max(p1, p2, num_qubits)
-    #
-    # get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), z[:, :, 0], "$\\varphi_1$", "$\\varphi_2$", "Probabilitiy of $\\varphi_1 > \\varphi_2$")
-    # plt.tight_layout()
-    # plt.savefig("./max_phi1.pdf", dpi="figure", format="pdf")
-    # plt.clf()
-    # get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), z[:, :, 1], "$\\varphi_1$", "$\\varphi_2$", "Probabilitiy of $\\varphi_1 = \\varphi_2$")
-    # plt.tight_layout()
-    # plt.savefig("./equal.pdf", dpi="figure", format="pdf")
-    # plt.clf()
-    # get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), z[:, :, 2], "$\\varphi_1$", "$\\varphi_2$", "Probabilitiy of $\\varphi_1 < \\varphi_2$")
-    # plt.tight_layout()
-    # plt.savefig("./max_phi2.pdf", dpi="figure", format="pdf")
-    # plt.clf()
-
-    # True max
     for idx1, p1 in enumerate(phi1):
         for idx2, p2 in enumerate(phi2):
             if (idx2 % 20) == 0:
                 print(f"{idx1+1}/{len(phi1)}, {idx2+1}/{len(phi2)}")
-            z[idx1, idx2, :] = get_prob_of_opt_max(p1, p2)
+            z[idx1, idx2, :] = get_prob_of_receiving_max(p1, p2, num_qubits)
+    np.save("./z", z)
 
-    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), z[:, :, 0], "$\\varphi_1$", "$\\varphi_2$", "Probabilitiy of $\\varphi_1 > \\varphi_2$")
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), z[:, :, 0], "$\\varphi_0$", "$\\varphi_1$", "")
     plt.tight_layout()
-    plt.savefig("./true_max_phi1.pdf", dpi="figure", format="pdf")
+    plt.savefig("./max_phi0.pdf", dpi="figure", format="pdf")
     plt.clf()
-    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), z[:, :, 1], "$\\varphi_1$", "$\\varphi_2$", "Probabilitiy of $\\varphi_1 = \\varphi_2$")
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), z[:, :, 1], "$\\varphi_0$", "$\\varphi_1$", "")
+    plt.tight_layout()
+    plt.savefig("./equal.pdf", dpi="figure", format="pdf")
+    plt.clf()
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), z[:, :, 2], "$\\varphi_0$", "$\\varphi_1$", "")
+    plt.tight_layout()
+    plt.savefig("./max_phi1.pdf", dpi="figure", format="pdf")
+    plt.clf()
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), z[:, :, 3], "$\\varphi_0$", "$\\varphi_1$", "")
+    plt.tight_layout()
+    plt.savefig("./less_equal_phi0.pdf", dpi="figure", format="pdf")
+    plt.clf()
+
+    # True max
+    true_z = np.empty((len(phi1), len(phi2), 4))
+    for idx1, p1 in enumerate(phi1):
+        for idx2, p2 in enumerate(phi2):
+            if (idx2 % 20) == 0:
+                print(f"{idx1+1}/{len(phi1)}, {idx2+1}/{len(phi2)}")
+            if idx1 > idx2:
+                temp = (0, 0, 1, 1)
+            elif idx1 < idx2:
+                temp = (1, 0, 0, 0)
+            else:
+                temp = (0, 1, 0, 1)
+            true_z[idx1, idx2, :] = temp
+
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), true_z[:, :, 0], "$\\varphi_0$", "$\\varphi_1$")
+    plt.tight_layout()
+    plt.savefig("./true_max_phi0.pdf", dpi="figure", format="pdf")
+    plt.clf()
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), true_z[:, :, 1], "$\\varphi_0$", "$\\varphi_1$")
     plt.tight_layout()
     plt.savefig("./true_equal.pdf", dpi="figure", format="pdf")
     plt.clf()
-    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), z[:, :, 2], "$\\varphi_1$", "$\\varphi_2$", "Probabilitiy of $\\varphi_1 < \\varphi_2$")
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), true_z[:, :, 2], "$\\varphi_0$", "$\\varphi_1$")
     plt.tight_layout()
-    plt.savefig("./true_max_phi2.pdf", dpi="figure", format="pdf")
+    plt.savefig("./true_max_phi1.pdf", dpi="figure", format="pdf")
     plt.clf()
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), true_z[:, :, 3], "$\\varphi_0$", "$\\varphi_1$", "")
+    plt.tight_layout()
+    plt.savefig("./true_less_equal_phi0.pdf", dpi="figure", format="pdf")
+    plt.clf()
+    np.save("./true_z", z)
+
+    # Diff max
+    diff_z = np.abs(z - true_z)
+    np.save("./diff_z", z)
+    if (diff_z < 0).any():
+        print("diff_z < 0")
+    else:
+        print("all diff_z > 0")
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), diff_z[:, :, 0], "$\\varphi_0$", "$\\varphi_1$")
+    plt.tight_layout()
+    plt.savefig("./diff_max_phi0.pdf", dpi="figure", format="pdf")
+    plt.clf()
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), diff_z[:, :, 1], "$\\varphi_0$", "$\\varphi_1$")
+    plt.tight_layout()
+    plt.savefig("./diff_equal.pdf", dpi="figure", format="pdf")
+    plt.clf()
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), diff_z[:, :, 2], "$\\varphi_0$", "$\\varphi_1$")
+    plt.tight_layout()
+    plt.savefig("./diff_max_phi1.pdf", dpi="figure", format="pdf")
+    plt.clf()
+    get_matplotlib_heatmap(phi1.tolist(), phi2.tolist(), diff_z[:, :, 3], "$\\varphi_0$", "$\\varphi_1$", "")
+    plt.tight_layout()
+    plt.savefig("./diff_less_equal_phi0.pdf", dpi="figure", format="pdf")
+    plt.clf()
+
 
 if __name__ == "__main__":
     main()
