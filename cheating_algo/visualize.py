@@ -5,6 +5,9 @@ import pandas as pd
 from pathlib import Path
 from load_config import _load_config
 from logger import load_log
+from solve_matrix_form import calculate_policy_quality
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 # terminal_states = {5, 7, 11, 12, 15}
@@ -264,6 +267,50 @@ def plot_max_params_change(max_params_change):
     return fig
 
 
+def plot_policy_quality(policy_quality):
+    policy_quality = np.array(policy_quality)
+    df = pd.DataFrame(policy_quality)
+    fig = px.line(df, title="Quality of the Policy over Episodes")
+    return fig
+
+
+def retrieve_result_dirs(config, start_dir):
+    import os.path
+    result_path = Path("./results/")
+    dirs = [d for d in os.listdir(result_path) if os.path.isdir(result_path / d)]
+    dirs.sort()
+    start_idx = 0
+    for idx, d in enumerate(dirs):
+        if d == start_dir:
+            start_idx = idx
+            break
+    dirs = dirs[start_idx:]
+    result_dirs = []
+    for d in enumerate(dirs):
+        d_config = _load_config(result_path / d / "config.json")
+        if d_config == config:
+            result_dirs.append(d)
+
+    return result_dirs
+
+
+def retrieve_policy_qualities(directories):
+    for d in directories:
+
+
+
+def matplotlib_policy_quality(policy_qualities):
+    data = policy_qualities
+    x = np.arange(data.shape[1])
+    mean = np.mean(data, axis=0)
+    std = np.std(data, axis=0)
+
+    fig, ax = plt.subplots()
+    ax.fill_between(x, x + std, x - std[1], alpha=0.2)
+    ax.plot(x, mean)
+    ax.margins(x=0)
+
+
 def create_visualizations(result_path: Path):
     config = _load_config(result_path / "config.json")
     gamma = config["gamma"]
@@ -271,37 +318,48 @@ def create_visualizations(result_path: Path):
 
     log = load_log(result_path / "log.txt")
 
-    print("create loss fig")
-    losses = [[entry["action_loss"], entry["value_loss"]] for entry in log]
-    loss_fig = plot_loss(losses)
-    with (result_path / "fig_loss.html").open("w", encoding="utf-8") as f:
-        f.write(loss_fig.to_html())
+    # print("create loss fig")
+    # losses = [[entry["action_loss"], entry["value_loss"]] for entry in log]
+    # loss_fig = plot_loss(losses)
+    # with (result_path / "fig_loss.html").open("w", encoding="utf-8") as f:
+    #     f.write(loss_fig.to_html())
+    #     f.close()
+    #
+    # print("create max grad fig")
+    # grads = [[entry["action_grad"], entry["value_grad"]] for entry in log]
+    # max_grad_fig = plot_max_grad(grads)
+    # with (result_path / "fig_max_grad.html").open("w", encoding="utf-8") as f:
+    #     f.write(max_grad_fig.to_html())
+    #     f.close()
+    #
+    # print("create value grad fig")
+    # with (result_path / "fig_value_grad.html").open("w", encoding="utf-8") as f:
+    #     f.write(plot_value_grads([entry["value_grad"] for entry in log]).to_html())
+    #     f.close()
+    #
+    # print("create max params change fig")
+    # with (result_path / "fig_max_params_change.html").open("w", encoding="utf-8") as f:
+    #     f.write(plot_max_params_change([[entry["action_params_change"], entry["value_params_change"]] for entry in log]).to_html())
+    #     f.close()
+
+    print("Calculate and save quality of the policy")
+    action_probs = [entry["action_probs"] for entry in log]
+    policy_quality = np.array([calculate_policy_quality(policy, gamma) for policy in action_probs])
+    np.save(result_path / "policy_quality.npy", policy_quality)
+
+    print("create policy quality fig")
+    with (result_path / "fig_policy_quality.html").open("w", encoding="utf-8") as f:
+        f.write(plot_policy_quality(policy_quality).to_html())
         f.close()
 
-    print("create max grad fig")
-    grads = [[entry["action_grad"], entry["value_grad"]] for entry in log]
-    max_grad_fig = plot_max_grad(grads)
-    with (result_path / "fig_max_grad.html").open("w", encoding="utf-8") as f:
-        f.write(max_grad_fig.to_html())
-        f.close()
 
-    print("create value grad fig")
-    with (result_path / "fig_value_grad.html").open("w", encoding="utf-8") as f:
-        f.write(plot_value_grads([entry["value_grad"] for entry in log]).to_html())
-        f.close()
-
-    print("create max params change fig")
-    with (result_path / "fig_max_params_change.html").open("w", encoding="utf-8") as f:
-        f.write(plot_max_params_change([[entry["action_params_change"], entry["value_params_change"]] for entry in log]).to_html())
-        f.close()
-
-    print("create training fig")
-    frames = [get_frozen_lake_frame(entry["action_probs"], entry["state_values"], gamma, end_state_values) for entry in
-              log]
-    training_fig = plot_animated_frozen_lake(frames, gamma, end_state_values)
-    with (result_path / "fig_training.html").open("w", encoding="utf-8") as f:
-        f.write(training_fig.to_html())
-        f.close()
+    # print("create training fig")
+    # frames = [get_frozen_lake_frame(entry["action_probs"], entry["state_values"], gamma, end_state_values) for entry in
+    #           log]
+    # training_fig = plot_animated_frozen_lake(frames, gamma, end_state_values)
+    # with (result_path / "fig_training.html").open("w", encoding="utf-8") as f:
+    #     f.write(training_fig.to_html())
+    #     f.close()
 
 
 def main():
@@ -318,4 +376,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    matplotlib_policy_quality([])

@@ -160,21 +160,35 @@ def print_det_policy(pi):
         print(f"{s}: {a_list[actions.argmax()]}")
 
 
-def main():
-    gamma = 0.8
-    policy, v = get_opt_policy(gamma)
-    print(f"v: {v}")
-    print(f"policy:\n {print_det_policy(policy)}")
+def calculate_policy_quality(policy, gamma):
+    policy = torch.tensor(policy, dtype=torch.float64)
     env = get_env_matrix()
     I = torch.zeros((16, 16), dtype=torch.float64)
     for i in range(16):
         I[i, i] = 1.
-    P = env @ get_policy_matrix(policy)
+    pi = get_policy_matrix(policy)
+    P = env @ pi    # transposed transistion matrix
     R = get_reward_vector(P)
-    print(f"R: {R}")
-    v2 = compute_values(I, gamma, (env @ get_policy_matrix(policy)).T, R)
-    print(f"v2: {v2}")
-    print(f"v - v2: {v - v2}")
+    v = compute_values(I, gamma, P.T, R)
+    return v[12]
+
+
+
+def main():
+    gamma = 0.8
+    # policy, v = get_opt_policy(gamma)
+    # print(f"v: {v}")
+    # print(f"policy:\n {print_det_policy(policy)}")
+    # env = get_env_matrix()
+    # I = torch.zeros((16, 16), dtype=torch.float64)
+    # for i in range(16):
+    #     I[i, i] = 1.
+    # P = env @ get_policy_matrix(policy)
+    # R = get_reward_vector(P)
+    # print(f"R: {R}")
+    # v2 = compute_values(I, gamma, (env @ get_policy_matrix(policy)).T, R)
+    # print(f"v2: {v2}")
+    # print(f"v - v2: {v - v2}")
     policy = torch.tensor([
         [1, 0, 0, 0],   #0
         [1, 0, 0, 0],   #1
@@ -198,7 +212,11 @@ def main():
     for i in range(16):
         I[i, i] = 1.
     pi = get_policy_matrix(policy)
-    P = env @ pi
+    P = env @ pi    # transposed transistion matrix
+    print("sum rows: ")
+    print(P.sum(axis=1))
+    print("sum cols: ")
+    print(P.sum(axis=0))
     R = get_reward_vector(P)
     v = compute_values(I, gamma, P.T, R)
     print(f"v1: {v}")
@@ -206,3 +224,10 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # A = torch.tensor([
+    #     [2, 0],
+    #     [1, 0]
+    # ], dtype=torch.int)
+    # print(A)
+    # print(A.sum(axis=0))
+    # print(A.sum(axis=1))
