@@ -104,6 +104,7 @@ if __name__ == "__main__":
         from visualize import main as vis_main
         idx = 0
         for config_path, config in load_config(path_dir):
+            idx += 1
             print(f"start config {idx}")
             main(config_path, config)
             vis_main()
@@ -124,3 +125,5 @@ if __name__ == "__main__":
         results = ppe.map(process_execution, worker_args)
         for res in results:
             print(res)
+
+    print("Finished all configs")
