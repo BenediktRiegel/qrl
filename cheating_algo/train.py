@@ -166,7 +166,7 @@ def sample_action_loss(policy, trans_model, v, gamma, end_state_values, shots: i
         results = qpe_one_prob(one_prob, qpe_qubits, shots, max_qpe_prob)
         # Get Median. Usually, we would have to use the Median of Median algorithm, to achieve O(shots)
         results.sort()
-        one_prob = results[len(results) // 2 + 1]
+        one_prob = results[(len(results)+1) // 2]
         return (1 - 2*one_prob) * sqrt(2) * v_max * sqrt(1 + gamma ** 2)
     # Sample normally
     samples = torch.floor(torch.rand(shots) + one_prob)

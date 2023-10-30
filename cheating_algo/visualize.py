@@ -3,11 +3,11 @@ import plotly.express as px
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from load_config import _load_config
+from load_config import _load_config, save_config
 from logger import load_log
 from solve_matrix_form import calculate_policy_quality
-import seaborn as sns
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 
 # terminal_states = {5, 7, 11, 12, 15}
@@ -274,6 +274,15 @@ def plot_policy_quality(policy_quality):
     return fig
 
 
+def dict_subset_of_dict(sub_dict: dict, big_dict: dict):
+    for k, v in sub_dict.items():
+        if k not in big_dict:
+            return False
+        if v != big_dict[k] and v is not None and big_dict is not None:
+            return False
+    return True
+
+
 def retrieve_result_dirs(config, start_dir):
     import os.path
     result_path = Path("./results/")
@@ -286,29 +295,76 @@ def retrieve_result_dirs(config, start_dir):
             break
     dirs = dirs[start_idx:]
     result_dirs = []
-    for d in enumerate(dirs):
-        d_config = _load_config(result_path / d / "config.json")
-        if d_config == config:
-            result_dirs.append(d)
+    for d in dirs:
+        config_path = (result_path / d) / "config.json"
+        if config_path.exists():
+            d_config = _load_config(config_path)
+            if dict_subset_of_dict(config, d_config):
+                result_dirs.append(result_path / d)
 
     return result_dirs
 
 
-def retrieve_policy_qualities(directories):
+def retrieve_policy_qualities(directories, recalculate=False):
+    policy_qualities = []
+    max_length = 0
+    # Go through directories and load policy qualities
     for d in directories:
+        path_to_quality = Path(d) / "policy_quality.npy"
+        if path_to_quality.exists() and not recalculate:
+            quality = np.load(d / "policy_quality.npy")
+        else:
+            quality = create_policy_quality_file(d)
+        max_length = max(max_length, len(quality))
+        policy_qualities.append(quality)
+
+    # Adjust lengths
+    final_result = np.zeros((len(policy_qualities), max_length))
+    for idx, quality in enumerate(policy_qualities):
+        final_result[idx, :len(quality)] = quality
+        final_result[idx, len(quality):] = [quality[-1]] * (max_length - len(quality))
+
+    return final_result
 
 
+def create_policy_quality_file(result_path, gamma=None, log=None, action_probs=None):
+    result_path = Path(result_path)
+    if gamma is None:
+        config = _load_config(result_path / "config.json")
+        gamma = config["gamma"]
+    if action_probs is None:
+        if log is None:
+            log = load_log(result_path / "log.txt")
+        action_probs = [entry["action_probs"] for entry in log]
+    policy_quality = np.array([calculate_policy_quality(policy, gamma) for policy in action_probs])
+    np.save(result_path / "policy_quality.npy", policy_quality)
+    return policy_quality
 
-def matplotlib_policy_quality(policy_qualities):
+
+def save_matplotlib_policy_quality(policy_qualities, save_dir):
     data = policy_qualities
     x = np.arange(data.shape[1])
     mean = np.mean(data, axis=0)
     std = np.std(data, axis=0)
 
     fig, ax = plt.subplots()
-    ax.fill_between(x, x + std, x - std[1], alpha=0.2)
+    ax.fill_between(x, mean + std, mean - std, alpha=0.2)
     ax.plot(x, mean)
     ax.margins(x=0)
+
+    save_dir = Path(save_dir)
+    save_dir.mkdir(parents=True, exist_ok=False)
+    plt.tight_layout()
+    plt.savefig(save_dir / "policy_quality.pdf", dpi="figure", format="pdf")
+    plt.clf()
+
+
+def save_policy_qualities(config, start_dir):
+    directories = retrieve_result_dirs(config, start_dir)
+    policy_qualities = retrieve_policy_qualities(directories, True)
+    output_dir = Path("./policy_qualities/" + datetime.now().strftime("%Y.%m.%d_%H.%M.%S"))
+    save_matplotlib_policy_quality(policy_qualities, output_dir)
+    save_config(output_dir / "config.json", config)
 
 
 def create_visualizations(result_path: Path):
@@ -318,34 +374,32 @@ def create_visualizations(result_path: Path):
 
     log = load_log(result_path / "log.txt")
 
-    # print("create loss fig")
-    # losses = [[entry["action_loss"], entry["value_loss"]] for entry in log]
-    # loss_fig = plot_loss(losses)
-    # with (result_path / "fig_loss.html").open("w", encoding="utf-8") as f:
-    #     f.write(loss_fig.to_html())
-    #     f.close()
-    #
-    # print("create max grad fig")
-    # grads = [[entry["action_grad"], entry["value_grad"]] for entry in log]
-    # max_grad_fig = plot_max_grad(grads)
-    # with (result_path / "fig_max_grad.html").open("w", encoding="utf-8") as f:
-    #     f.write(max_grad_fig.to_html())
-    #     f.close()
-    #
-    # print("create value grad fig")
-    # with (result_path / "fig_value_grad.html").open("w", encoding="utf-8") as f:
-    #     f.write(plot_value_grads([entry["value_grad"] for entry in log]).to_html())
-    #     f.close()
-    #
-    # print("create max params change fig")
-    # with (result_path / "fig_max_params_change.html").open("w", encoding="utf-8") as f:
-    #     f.write(plot_max_params_change([[entry["action_params_change"], entry["value_params_change"]] for entry in log]).to_html())
-    #     f.close()
+    print("create loss fig")
+    losses = [[entry["action_loss"], entry["value_loss"]] for entry in log]
+    loss_fig = plot_loss(losses)
+    with (result_path / "fig_loss.html").open("w", encoding="utf-8") as f:
+        f.write(loss_fig.to_html())
+        f.close()
+
+    print("create max grad fig")
+    grads = [[entry["action_grad"], entry["value_grad"]] for entry in log]
+    max_grad_fig = plot_max_grad(grads)
+    with (result_path / "fig_max_grad.html").open("w", encoding="utf-8") as f:
+        f.write(max_grad_fig.to_html())
+        f.close()
+
+    print("create value grad fig")
+    with (result_path / "fig_value_grad.html").open("w", encoding="utf-8") as f:
+        f.write(plot_value_grads([entry["value_grad"] for entry in log]).to_html())
+        f.close()
+
+    print("create max params change fig")
+    with (result_path / "fig_max_params_change.html").open("w", encoding="utf-8") as f:
+        f.write(plot_max_params_change([[entry["action_params_change"], entry["value_params_change"]] for entry in log]).to_html())
+        f.close()
 
     print("Calculate and save quality of the policy")
-    action_probs = [entry["action_probs"] for entry in log]
-    policy_quality = np.array([calculate_policy_quality(policy, gamma) for policy in action_probs])
-    np.save(result_path / "policy_quality.npy", policy_quality)
+    policy_quality = create_policy_quality_file(result_path, gamma, log)
 
     print("create policy quality fig")
     with (result_path / "fig_policy_quality.html").open("w", encoding="utf-8") as f:
@@ -353,13 +407,13 @@ def create_visualizations(result_path: Path):
         f.close()
 
 
-    # print("create training fig")
-    # frames = [get_frozen_lake_frame(entry["action_probs"], entry["state_values"], gamma, end_state_values) for entry in
-    #           log]
-    # training_fig = plot_animated_frozen_lake(frames, gamma, end_state_values)
-    # with (result_path / "fig_training.html").open("w", encoding="utf-8") as f:
-    #     f.write(training_fig.to_html())
-    #     f.close()
+    print("create training fig")
+    frames = [get_frozen_lake_frame(entry["action_probs"], entry["state_values"], gamma, end_state_values) for entry in
+              log]
+    training_fig = plot_animated_frozen_lake(frames, gamma, end_state_values)
+    with (result_path / "fig_training.html").open("w", encoding="utf-8") as f:
+        f.write(training_fig.to_html())
+        f.close()
 
 
 def main():
@@ -377,4 +431,20 @@ def main():
 
 if __name__ == "__main__":
     # main()
-    matplotlib_policy_quality([])
+    result_path = Path("./results/2023.10.29_23.23.19/")
+    create_visualizations(result_path)
+    config = dict(
+        num_iterations=12,
+        sub_iterations=[[0.0001, 25, 2], [0.0001, 25, 1]],
+        end_state_values=True,
+        value_optimizer="Adam",
+        action_optimizer="Adam",
+        value_lr=0.5,
+        action_lr=0.5,
+        gamma=0.8,
+        eps=0.0,
+        shots=None,
+        qpe_qubits=0,
+        max_qpe_prob=0.8,
+    )
+    # save_policy_qualities(config, "2023.10.29_23.05.16")

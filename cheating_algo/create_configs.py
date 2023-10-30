@@ -25,11 +25,13 @@ def main():
     action_lr_list = [0.5]
     gamma_list = [0.8]
     eps_list = [0.0]
-    shots_list = [10, 50, 100, 1000, 10000, 100000, 1000000, None]
-    qpe_qubits_list = [0, 8, 16, 32, 64]
-    max_qpe_prob_list = [0.8]
+    # shots_list = [10, 50, 100, 1000, 10000, 100000, 1000000, None]
+    # qpe_qubits_list = [0, 8, 16, 32, 64]
+    shots_list = [100000]
+    qpe_qubits_list = [50]
+    max_qpe_prob_list = [0.9999]
 
-    num_repetitions = 9
+    num_repetitions = 1
 
     num = 1
     for _ in range(num_repetitions):
@@ -44,8 +46,8 @@ def main():
                                     for shots in shots_list:
                                         for qpe_qubits in qpe_qubits_list:
                                             for max_qpe_prob in max_qpe_prob_list:
-                                                if not shots or (shots > 100 and qpe_qubits > 0):
-                                                    continue
+                                                # if qpe_qubits > 0 and (not shots or shots > 100):
+                                                #     continue
                                                 config = dict(
                                                     num_iterations=num_iterations,
                                                     sub_iterations=sub_iterations,

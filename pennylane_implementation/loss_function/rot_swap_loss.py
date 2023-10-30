@@ -64,7 +64,8 @@ def value_loss_circuit(
         unclean_wires=unclean_qubits + x_qubits + y_qubits + next_x_qubits + next_y_qubits + action_qubits
     ).circuit()
 
-    r_factor = [1 / v_max]
+    # r_factor = [1 / v_max]
+    r_factor = [1]
 
     # Transistion
     environment.circuit(
@@ -136,7 +137,7 @@ def value_loss_circuit(
 
     # Load swap vector
     ancilla_qubits = ancilla_qubits[len(swap_vector_qubits):]
-    vector = np.array([[0, 0, 1, 0, -1 * gamma, 0, -1, 0]])
+    vector = np.array([[0, 0, 1, 0, -1 * gamma, 0, -r_max/v_max, 0]])
     # print(f"swap vector: {vector[0]}")
     vector_norm = np.linalg.norm(vector[0])
     vector /= vector_norm
@@ -272,8 +273,11 @@ def value_loss(
     #     print(f"result: {result[0] - result[1]}")
     #     print(f"precise rescaled loss: {(true_prob[0] - true_prob[1])} * 3 * {v_max ** 2} * {2 + gamma ** 2} = {(true_prob[0] - true_prob[1]) * 3} * {v_max ** 2} * {(2 + gamma ** 2)} = {(true_prob[0] - true_prob[1]) * 3 * (v_max ** 2)} * {2 + gamma ** 2} = {(true_prob[0] - true_prob[1]) * 3 * (v_max ** 2) * (2 + gamma**2)}")
     #     print(f"precise rescaled loss: {(result[0] - result[1])} * 3 * {v_max ** 2} * {2 + gamma ** 2} = {(result[0] - result[1]) * 3} * {v_max ** 2} * {(2 + gamma ** 2)} = {(result[0] - result[1]) * 3 * (v_max ** 2)} * {2 + gamma ** 2} = {(result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma**2)}")
+    vector = np.array([[0, 0, 1, 0, -1 * gamma, 0, -r_max / v_max, 0]])
+    # print(f"swap vector: {vector[0]}")
+    vector_norm = np.linalg.norm(vector[0])
 
-    return (result[0] - result[1]) * 3 * (v_max ** 2) * (2 + gamma ** 2)  # * (2**(len(x_qubits) + len(y_qubits)))
+    return (result[0] - result[1]) * 3 * (v_max ** 2) * vector_norm**2  # * (2**(len(x_qubits) + len(y_qubits)))
 
 
 def action_loss_circuit(
@@ -305,7 +309,7 @@ def action_loss_circuit(
 
     qml.CRY(phi=np.pi / 2., wires=(loss_qubit, value_indices_qubits[0]))
 
-    r_factor = [1 / v_max]
+    r_factor = [1]
 
     # Transistion
     # r is loaded into loss_qubit = |1> and value_indices_qubits = |0>
@@ -356,7 +360,7 @@ def action_loss_circuit(
 
     # Load swap vector
     # Load [1, 0, 1*gamma, 0] / ||vec||, if loss_qubit = |0>
-    vector = np.array([[1, 0, 1 * gamma, 0]])
+    vector = np.array([[r_max/v_max, 0, 1 * gamma, 0]])
     vector_norm = np.linalg.norm(vector[0])
     vector /= vector_norm
     # print(f"normed vec: {vector}")
@@ -424,10 +428,11 @@ def action_loss(
     else:
         result = qml.QNode(circuit, backend, interface="torch", diff_method=diff_method)()
 
-    vector_norm = np.linalg.norm([1, 0, 1 * gamma, 0])
 
     r_max = environment.r_m
     v_max = r_max / (1 - gamma) if end_state_values else r_max
+
+    vector_norm = np.linalg.norm([r_max/v_max, 0, 1 * gamma, 0])
 
     # if snaps:
     #     qnode = qml.QNode(circuit, backend, diff_method="best")
