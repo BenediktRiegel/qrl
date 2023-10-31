@@ -4,6 +4,13 @@ from numpy import flip
 
 
 def get_fig(x, y, z):
+    """
+    Given x, y and z, this function returns a 3d plot with contours, made via plotly
+    :param x: list of values on the x-axis
+    :param y: list of values on the y-axis
+    :param z: 2d list for heatmap colour
+    :return: 3d plot made via plotly
+    """
     fig = go.Figure(data=[go.Surface(
         x=x,
         y=y,
@@ -19,6 +26,13 @@ def get_fig(x, y, z):
 
 
 def get_heatmap(x, y, z):
+    """
+    Given x, y and z, this function returns a heatmap via plotly
+    :param x: list of values on the x-axis
+    :param y: list of values on the y-axis
+    :param z: 2d list for heatmap colour
+    :return: heatmap made via plotly
+    """
     return go.Figure(data=go.Heatmap(
         z=z,
         x=x,
@@ -26,7 +40,16 @@ def get_heatmap(x, y, z):
         hoverongaps=False))
 
 
-def get_matplotlib_heatmap(x, y, z, xlabel, ylabel):
+def get_seaborn_heatmap(x, y, z, xlabel, ylabel):
+    """
+    Given x, y and z, this function returns a heatmap via plotly. It also sets the labels for the x- and y-axis
+    :param x: list of values on the x-axis
+    :param y: list of values on the y-axis
+    :param z: 2d list for heatmap colour
+    :param xlabel: label of the x-axis
+    :param ylabel: label of the y-axis
+    :return: heatmap made via seaborn
+    """
     z = flip(z, axis=0)
     plot = sns.heatmap(z, xticklabels=x, linewidths=0.0, rasterized=True)
     plot.set(xlabel=xlabel, ylabel=ylabel)

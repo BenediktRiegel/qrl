@@ -36,7 +36,7 @@ def main():
     qpe_qubits_list = [16]
     max_qpe_prob_list = [0.999]
 
-    num_repetitions = 1
+    num_repetitions = 8
 
     num = 1
     for _ in range(num_repetitions):
