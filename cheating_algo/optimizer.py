@@ -21,9 +21,9 @@ class OptimizerEnum(Enum):
         """
         returns the optimizer specified by the enum
 
-        optimizer: optimizer type (OptimizerEnum)
-        model: the network to optimize
-        lr: learning rate (float)
+        :param optimizer: optimizer type (OptimizerEnum)
+        :param model: the network to optimize
+        :param lr: learning rate (float)
         """
         if self == OptimizerEnum.adadelta:
             return optim.Adadelta(parameters, lr=lr)

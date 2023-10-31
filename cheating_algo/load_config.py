@@ -23,6 +23,13 @@ default_values = dict(
 
 
 def _load_config(file_path: Path) -> dict:
+    """
+    Given the path to a config, i.e. a .json file, this method will load the contents of the config into a dictionary.
+    Missing values will be replaced by the default values. Additionally, it adds another folder to the directory
+    specified by the entry 'ouput_dir' of the config. The name of this folder is the current date and time.
+    :param file_path: path to config file
+    :return: dictionary of config
+    """
     config = deepcopy(default_values)
     old_file_dir = file_path.parent.resolve()
     print(f"file_path: {file_path}")
@@ -39,6 +46,12 @@ def _load_config(file_path: Path) -> dict:
 
 
 def load_config(config_path: str | Path) -> Generator[Tuple[Path, dict], None, None]:
+    """
+    Takes a path to either a directory containing configs or a single config.
+    Returns a generator that loads each config and returns it with its path
+    :param config_path: path to single config or a directory containing configs
+    :return: generator each yield gives the file_path to the next config and the next config itself.
+    """
     config_path = Path(config_path)
 
     if config_path.is_file():
@@ -51,6 +64,10 @@ def load_config(config_path: str | Path) -> Generator[Tuple[Path, dict], None, N
 
 
 def save_config(config_path: str | Path, config: dict):
+    """
+    Dumps config into a .json file
+    :param config_path: path to a .json file in which to save the config.
+    """
     if isinstance(config_path, str):
         config_path = Path(config_path)
     with config_path.open("w") as f:

@@ -8,6 +8,12 @@ class WeightInitEnum(Enum):
     zero = "zero"
 
     def init_params(self, shape, dtype=torch.float64):
+        """
+        Initialises a torch.tensor according to the chosen WeightInitEnum and the given shape and dtype.
+        :param shape: shape that the tensor should have
+        :param dtype: dtype the tensor should have
+        :return: torch.tensor
+        """
         if self == WeightInitEnum.standard_normal:
             parameters = torch.pi * torch.randn(shape, dtype=dtype)
         elif self == WeightInitEnum.uniform:

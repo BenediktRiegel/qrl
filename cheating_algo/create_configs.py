@@ -2,6 +2,11 @@ from json import dump as json_dump
 
 
 def main():
+    """
+    Creates configs in the directory ./configs
+    The method determines lists for the different parameters.
+    This method will create a config for each parameter combination given by these lists.
+    """
     output_path = "./results/"
     output_dir = "./results/hyperparameter_search"
     end_state_values = True
@@ -28,8 +33,8 @@ def main():
     # shots_list = [10, 50, 100, 1000, 10000, 100000, 1000000, None]
     # qpe_qubits_list = [0, 8, 16, 32, 64]
     shots_list = [100000]
-    qpe_qubits_list = [50]
-    max_qpe_prob_list = [0.9999]
+    qpe_qubits_list = [16]
+    max_qpe_prob_list = [0.999]
 
     num_repetitions = 1
 

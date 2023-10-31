@@ -13,7 +13,15 @@ from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor
 
 
-def main(config_path, config):
+def run(config_path, config, console_prints=False):
+    """
+    Given the path to a config and the contents of the config, this method initialises the weights of the QNNs. Further,
+    it initialises the specified optimizers and a logger with the specified output directory.
+    After initialising everything, it trains the parameters and save the resulting parameters, as well as the config
+    in the output directory. Finally, it deletes the old config.
+    :param config_path: path to config
+    :param config: config as dictionary
+    """
     num_iterations = config["num_iterations"]
     # 1: action, 2: value, 3: return both, 4: lam * action + value
     sub_iterations = config["sub_iterations"]
@@ -69,7 +77,7 @@ def main(config_path, config):
     value_optimizer = value_optimizer_enum.get_optimizer([value_params], value_lr)
     action_optimizer = action_optimizer_enum.get_optimizer([action_params], action_lr)
 
-    train(value_optimizer, action_optimizer, num_iterations, sub_iterations, action_params, value_params, gamma, eps, end_state_values, shots, qpe_qubits, max_qpe_prob, logger)
+    train(value_optimizer, action_optimizer, num_iterations, sub_iterations, action_params, value_params, gamma, eps, end_state_values, shots, qpe_qubits, max_qpe_prob, logger, console_prints)
 
     save(action_params, output_dir / f"action_params")
     save(value_params, output_dir / f"value_qnn_param")
@@ -82,6 +90,12 @@ def main(config_path, config):
 
 
 def process_execution(worker_args):
+    """
+    Given an id and a list of configs, this method executes the method ``run`` with all configs.
+    Additionally, it overwrites the output directory specified by the config to be the output path + the current date and time
+    and the id. At the end it visualizes the results of the executed config.
+    :param worker_args: tuple of an assigned id and a list of configs
+    """
     process_id, configs = worker_args
     total_configs = len(configs)
     for idx, (config_path, config) in enumerate(configs):
@@ -93,11 +107,17 @@ def process_execution(worker_args):
         sub_dir_str = datetime.now().strftime("%Y.%m.%d_%H.%M.%S") + f"_id{process_id}"
         output_dir = Path(config["output_path"]) / sub_dir_str
         config["output_dir"] = str(output_dir.resolve())
-        main(config_path, config)
+        run(config_path, config)
         create_visualizations(Path(config["output_dir"]))
 
 
-if __name__ == "__main__":
+def main():
+    """
+    Takes no input parameters. Changes have to be made directly in method.
+    Given a directory containing configs, it loads the configs in the directory and one by one executes them via the method run.
+    If the variable ``num_processes`` is > 1, then it starts ``num_processes`` many processes, divides the configs up fairly between them
+    and executes the method ``process_execution`` for each of them
+    """
     path_dir = Path("./configs/")
     num_processes = 1
     if num_processes == 1:
@@ -106,7 +126,7 @@ if __name__ == "__main__":
         for config_path, config in load_config(path_dir):
             idx += 1
             print(f"start config {idx}")
-            main(config_path, config)
+            run(config_path, config, console_prints=True)
             vis_main()
     elif num_processes > 1:
         torch.multiprocessing.set_start_method('spawn')
@@ -127,3 +147,7 @@ if __name__ == "__main__":
             print(res)
 
     print("Finished all configs")
+
+
+if __name__ == "__main__":
+    main()

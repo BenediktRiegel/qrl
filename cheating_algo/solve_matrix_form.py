@@ -6,12 +6,21 @@ import torch
 from logger import Logger
 
 
-env_matrix = None
-terminal_states = {0, 3, 7, 9, 11}
-goal_states = {3}
+env_matrix = None   # Saves the environmental matrix by get_env_matrix, to avoid multiple computations
+terminal_states = {0, 3, 7, 9, 11}  # Determines which states are terminal, i.e. holes or goals
+goal_states = {3}   # Determines which states are the goals
 
 
 def get_env_matrix():
+    """
+    Returns a matrix env of size |S| x (|S|•|A|) specifying the properties of a 4x4 frozen lake.
+    |S|=16 is the size of the state space and |A|=4 is the size of the action space. A state s and an action a are encoded
+    into a vector x. This vector is zero everywhere, except at the entry (4*s + a), at this entry its one.
+    Computing env @ x gives us a new vector y. The entry k of y is the probability of transitioning to the state y,
+    while in state s and executing action a.
+
+    :return: matrix containing the transition properties of the environment
+    """
     global env_matrix
     if env_matrix is None:
         global terminal_states
@@ -49,6 +58,14 @@ def get_env_matrix():
 
 
 def get_reward_vector(P):
+    """
+    Given the matrix env @ pi, this method returns a vector of the expected rewards one receives, when starting in
+    state s and following policy pi.
+
+    :param P: matrix of size |S| x |S|. The entry P[s', s] contains the probability of transitioning to state s' from
+    state s under policy pi and the given environment, i.e. P = env @ pi
+    :return: returns the reward vector R
+    """
     R = torch.zeros(16, dtype=torch.float64)
     for s in range(16):
         s_vec = torch.zeros(16, dtype=torch.float64)
@@ -62,61 +79,50 @@ def get_reward_vector(P):
     return R
 
 
-def get_action_probs(action_params, s):
-    # p = action_params[s]
-    # probs = torch.tensor([torch.cos((p[0] + p[2])/2.), torch.sin((p[0] + p[2])/2.)])
-    # probs = torch.kron(probs, torch.tensor([torch.cos((p[1] + p[2])/2.), torch.sin((p[1] + p[2])/2.)]))
-    return action_params[s]
-
-
-def get_col_action_probs(action_params, s):
+def get_col_action_probs(policy, s):
+    """
+    Returns the s'th column of the action matrix pi, given the action parameters
+    :param policy: a matrix of size |S| x |A| that contains the probabilities of taking action a while in state s
+    :param s: a state, i.e. an integer
+    :return: s'th column entry of the action matrix pi
+    """
     col = torch.zeros(64, dtype=torch.float64)
-    col[s*4:s*4 + 4] = get_action_probs(action_params, s)
+    col[s*4:s*4 + 4] = policy[s]
     return col
 
 
-def get_policy_matrix(action_params):
+def get_policy_matrix(policy):
+    """
+    Returns the policy matrix pi, given the action parameters. The size of pi is |A|•|S| x |S|.
+    :param policy: a matrix of size |S| x |A| that contains the probabilities of taking action a while in state s
+    :return: policy matrix pi
+    """
     matrix = torch.empty((64, 16), dtype=torch.float64)
     for s in range(16):
-        matrix[:, s] = get_col_action_probs(action_params, s)
+        matrix[:, s] = get_col_action_probs(policy, s)
     return matrix
 
 
-def get_value_vector(value_params):
-    return torch.cos(value_params / 2.)
-
-
-def value_loss(P, R, v, gamma):
-    # v_max = r_max / (1 - gamma) --r_max=1--> v_max = 1/(1 - gamma) -> R / v_max = R * (1 - gamma)
-    loss = torch.square(v - (1-gamma)*R - gamma * (P @ v))
-    return loss.sum() / 16 / 3 / ((1-gamma)**2) / (2 + gamma ** 2)
-
-
-def sample_value_loss(P, R, v, gamma, shots):
-    one_prob = 0.5 - value_loss(P, R, v, gamma) / 2.
-    samples = torch.floor(torch.rand(shots) + one_prob)
-    sampled_loss = ((-2 * samples) + 1).sum() / shots
-    return sampled_loss
-
-
-def compute_value_grad(value_params, P, R, gamma, shots):
-    value_params.grad = torch.zeros(value_params.shape, dtype=value_params.dtype)
-    shift = torch.pi / 4.
-    for idx, p in enumerate(value_params):
-        value_params[idx] = p + shift
-        loss_plus = sample_value_loss(P, R, get_value_vector(value_params), gamma, shots)
-        value_params[idx] = p - shift
-        loss_minus = sample_value_loss(P, R, get_value_vector(value_params), gamma, shots)
-        value_params.grad[idx] = loss_plus - loss_minus
-        value_params[idx] = p
-
-
 def compute_values(I, gamma, P, R):
-    # return torch.linalg.inv(I - gamma * P) @ R
+    """
+    Solves v = (I - gamma•P)^(-1) R and returns v. Carefull, here P is (env @ pi)^T.
+    :param I: the identity matrix of size |S| x |S|.
+    :param gamma: discount factor gamma
+    :param P: matrix of size |S| x |S|. The entry P[s, s'] contains the probability of transitioning to state s' from
+    state s under policy pi and the given environment, i.e. P = (env @ pi)^T
+    :param R: reward vector of size |S|
+    :return: returns the reward vector R
+    """
     return torch.linalg.solve(I - gamma * P, R)
 
 
 def get_opt_policy(gamma):
+    """
+    Does policy itertation to obtain the optimal policy. To calculate the values of a policy, it solves the linear
+    system of equations defined by the Bellman equations directly.
+    :param gamma: discount factor
+    :return: optimal policy and optimal state values
+    """
     env = get_env_matrix()
     I = torch.zeros((16, 16), dtype=torch.float64)
     for i in range(16):
@@ -146,21 +152,22 @@ def get_opt_policy(gamma):
     return policy, values
 
 
-def get_next_s(policy, s):
-    env = get_env_matrix()
-    policy = get_policy_matrix(policy)
-    P = env @ policy
-    probs = P[:, s]
-    print({next_s: prob for next_s, prob in enumerate(probs) if prob != 0})
-
-
-def print_det_policy(pi):
+def print_det_policy(policy):
+    """
+    Prints for each state s the action with the highest probability in natural language.
+    :param policy: a matrix of size |S| x |A| that contains the probabilities of taking action a while in state s
+    """
     a_list = ["right", "down", "left", "up"]
-    for s, actions in enumerate(pi):
+    for s, actions in enumerate(policy):
         print(f"{s}: {a_list[actions.argmax()]}")
 
 
 def calculate_policy_quality(policy, gamma):
+    """
+    Given a policy and gamma, this method returns the value of the start state (12'th state)
+    :param policy: a matrix of size |S| x |A| that contains the probabilities of taking action a while in state s
+    :param gamma: discount factor
+    """
     policy = torch.tensor(policy, dtype=torch.float64)
     env = get_env_matrix()
     I = torch.zeros((16, 16), dtype=torch.float64)
@@ -175,59 +182,14 @@ def calculate_policy_quality(policy, gamma):
 
 
 def main():
+    """
+    Executes get_opt_policy with gamma = 0.8 to retrieve the optimal policy and prints the values, aswell as the policy.
+    """
     gamma = 0.8
-    # policy, v = get_opt_policy(gamma)
-    # print(f"v: {v}")
-    # print(f"policy:\n {print_det_policy(policy)}")
-    # env = get_env_matrix()
-    # I = torch.zeros((16, 16), dtype=torch.float64)
-    # for i in range(16):
-    #     I[i, i] = 1.
-    # P = env @ get_policy_matrix(policy)
-    # R = get_reward_vector(P)
-    # print(f"R: {R}")
-    # v2 = compute_values(I, gamma, (env @ get_policy_matrix(policy)).T, R)
-    # print(f"v2: {v2}")
-    # print(f"v - v2: {v - v2}")
-    policy = torch.tensor([
-        [1, 0, 0, 0],   #0
-        [1, 0, 0, 0],   #1
-        [1, 0, 0, 0],   #2
-        [1, 0, 0, 0],   #3
-        [0, 0, 0, 1],   #4
-        [0, 1, 0, 0],   #5
-        [0, 0, 1, 0],   #6
-        [1, 0, 0, 0],   #7
-        [0, 0, 1, 0],   #8
-        [1, 0, 0, 0],   #9
-        [1, 0, 0, 0],   #10
-        [1, 0, 0, 0],   #11
-        [0, 0, 1, 0],   #12
-        [0, 0, 0, 1],   #13
-        [0, 0, 1, 0],   #14
-        [0, 0, 0, 1],   #15
-    ])
-    env = get_env_matrix()
-    I = torch.zeros((16, 16), dtype=torch.float64)
-    for i in range(16):
-        I[i, i] = 1.
-    pi = get_policy_matrix(policy)
-    P = env @ pi    # transposed transistion matrix
-    print("sum rows: ")
-    print(P.sum(axis=1))
-    print("sum cols: ")
-    print(P.sum(axis=0))
-    R = get_reward_vector(P)
-    v = compute_values(I, gamma, P.T, R)
-    print(f"v1: {v}")
+    policy, v = get_opt_policy(gamma)
+    print(f"v: {v}")
+    print(f"policy:\n {print_det_policy(policy)}")
 
 
 if __name__ == "__main__":
     main()
-    # A = torch.tensor([
-    #     [2, 0],
-    #     [1, 0]
-    # ], dtype=torch.int)
-    # print(A)
-    # print(A.sum(axis=0))
-    # print(A.sum(axis=1))
