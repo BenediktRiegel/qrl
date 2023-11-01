@@ -397,7 +397,12 @@ def dict_subset_of_dict(sub_dict: dict, big_dict: dict):
     for k, v in sub_dict.items():
         if k not in big_dict:
             return False
-        if v != big_dict[k] and v is not None and big_dict is not None:
+        if v is not None and big_dict[k] is not None:
+            if v != big_dict[k]:
+                return False
+        if v is not None and big_dict[k] is None:
+            return False
+        if v is None and big_dict[k] is not None:
             return False
     return True
 
@@ -602,8 +607,23 @@ def main():
 
 if __name__ == "__main__":
     # main()
-    result_path = Path("./results/2023.10.29_23.23.19/")
-    create_visualizations(result_path)
+    # result_path = Path("./results/2023.10.29_23.23.19/")
+    # create_visualizations(result_path)
+    # config = dict(
+    #     num_iterations=12,
+    #     sub_iterations=[[0.0001, 25, 2], [0.0001, 25, 1]],
+    #     end_state_values=True,
+    #     value_optimizer="Adam",
+    #     action_optimizer="Adam",
+    #     value_lr=0.5,
+    #     action_lr=0.5,
+    #     gamma=0.8,
+    #     eps=0.0,
+    #     shots=None,
+    #     qpe_qubits=0,
+    #     max_qpe_prob=0.8,
+    # )
+    # save_policy_qualities(config, "2023.10.29_23.05.16")
     config = dict(
         num_iterations=12,
         sub_iterations=[[0.0001, 25, 2], [0.0001, 25, 1]],
@@ -616,6 +636,22 @@ if __name__ == "__main__":
         eps=0.0,
         shots=None,
         qpe_qubits=0,
-        max_qpe_prob=0.8,
     )
-    # save_policy_qualities(config, "2023.10.29_23.05.16")
+    paths = retrieve_result_paths(config, "2023.10.27_16.37.01")
+
+    import os
+    import shutil
+
+    destination_path = Path("./interesting_results/perfect/")
+    for p in paths:
+        print(f"Copying content of {p}")
+        for file_name in os.listdir(p):
+            # construct full file path
+            extra_dir = p.name
+            source = p / file_name
+            dest_path = destination_path / extra_dir
+            destination = dest_path / file_name
+            # copy only files
+            dest_path.mkdir(parents=True, exist_ok=True)
+            if os.path.isfile(source):
+                shutil.copy(source, destination)
