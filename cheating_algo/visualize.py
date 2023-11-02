@@ -811,9 +811,9 @@ if __name__ == "__main__":
         action_lr=0.5,
         gamma=0.8,
         eps=0.0,
-        shots=100000,
-        qpe_qubits=50,
-        max_qpe_prob=0.9999,
+        shots=10000000,
+        qpe_qubits=0,
+        max_qpe_prob=0.8,
     )
     # save_action_and_value_losses(config, "", "./interesting_results/qpe/16_0,999")
     save_matplotlib_visualizations(config, "", result_path="./interesting_results/qpe/50_0,9999/")
