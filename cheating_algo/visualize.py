@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 from load_config import _load_config, save_config
 from logger import load_log
-from solve_matrix_form import calculate_policy_quality
+from solve_matrix_form import calculate_policy_quality, calculate_optimal_policy_quality
 import matplotlib.pyplot as plt
 from datetime import datetime
 
@@ -407,17 +407,18 @@ def dict_subset_of_dict(sub_dict: dict, big_dict: dict):
     return True
 
 
-def retrieve_result_paths(config, start_dir):
+def retrieve_result_paths(config, start_dir, result_path="./results"):
     """
-    Returns a list of paths. Each path has to fulfill the property that its last directory comes after the
-    ``start_dir``, when sorted lexicographically. Additionally, the ``config`` has to be a sub-directory of the config within
-    the path.
+    Returns a list of paths to training results in the path 'result_path'. Each path has to fulfill the property that
+    its last directory comes after the ``start_dir``, when sorted lexicographically. Additionally, the ``config`` has
+    to be a sub-directory of the config within the path.
     :param config: dict
     :param start_dir: str
+    :param result_path: str | Path object. Default value is './results'
     :return: list of paths
     """
     import os.path
-    result_path = Path("./results/")
+    result_path = Path(result_path)
     dirs = [d for d in os.listdir(result_path) if os.path.isdir(result_path / d)]
     dirs.sort()
     start_idx = 0
@@ -492,43 +493,163 @@ def create_policy_quality_file(result_path, gamma=None, log=None, action_probs=N
     return policy_quality
 
 
-def save_matplotlib_policy_quality(policy_qualities, save_path):
-    """
-    Given the policy qualities of multiple trainings, this function computes the mean and the std at each
-    training step. Next it plots the mean as a line and the std as a shaded area via matplotlib and saves the resulting
-    plot in the specified path as a pdf file called "policy_quality.pdf".
-    :param policy_qualities: matrix of size #trainings x #training steps containing the policy qualities
-    :param save_path: the path to save the file to
-    """
-    data = policy_qualities
+def plot_mean_std(data, label=""):
     x = np.arange(data.shape[1])
     mean = np.mean(data, axis=0)
     std = np.std(data, axis=0)
-
     fig, ax = plt.subplots()
     ax.fill_between(x, mean + std, mean - std, alpha=0.2)
-    ax.plot(x, mean)
+    ax.plot(x, mean, label=label)
     ax.margins(x=0)
+    return fig, ax, x
+
+
+def save_mean_std_plot(data, save_path, file_name):
+    fig, ax, x = plot_mean_std(data)
+    save_dir = Path(save_path)
+    save_dir.mkdir(parents=True, exist_ok=False)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(save_dir / f"{file_name}.pdf", dpi="figure", format="pdf")
+    plt.clf()
+
+
+def save_matplotlib_policy_quality(policy_qualities, save_path, gamma=None):
+    """
+    Given the policy qualities of multiple trainings, this function computes the mean and the std at each
+    training step. Next it plots the mean as a line and the std as a shaded area via matplotlib and saves the resulting
+    plot in the specified path as a pdf file called "policy_quality.pdf". If the optional parameter gamma is not none,
+    then it will also compute the optimal value and include it as a single line within the plot
+    :param policy_qualities: matrix of size #trainings x #training steps containing the policy qualities
+    :param save_path: the path to save the file to
+    :param gamma: optional float
+    """
+    fig, ax, x = plot_mean_std(policy_qualities, label="Mean Quality")
+
+    if gamma is not None and isinstance(gamma, float) and gamma >= 0 and gamma < 1:
+        optimal_v = calculate_optimal_policy_quality(gamma)
+        y_opt = np.array([optimal_v]*len(x))
+        ax.plot(x, y_opt, label="Optimal Quality")
 
     save_dir = Path(save_path)
     save_dir.mkdir(parents=True, exist_ok=False)
+    plt.legend()
     plt.tight_layout()
     plt.savefig(save_dir / "policy_quality.pdf", dpi="figure", format="pdf")
     plt.clf()
 
 
-def save_policy_qualities(config, start_dir):
+def save_policy_qualities(config, start_dir, result_path="./results", output_path=None, copy_config=True):
     """
     Gets all policy qualities of training processes with the same sub-config, created after start_dir.
-    Next it saves a plot of these policy qualities to the path ./policy_qualities/{current date and time}.
+    Next it saves a plot of these policy qualities to the path specified by output_path. If output_path is None or an
+    empty string, then it saves it to './policy_qualities/{current date and time}' instead.
     :param config: dict. Is the sub-config that every other config needs to contain
     :param start_dir: str. Directories of training process's must come after start_dir, lexicographically.
+    :param result_path: str | Path object. Default value is './results'
+    :param output_path: str | Path object. Default = ""
     """
-    directories = retrieve_result_paths(config, start_dir)
+    directories = retrieve_result_paths(config, start_dir, result_path)
+    print(f"retrieved {len(directories)} result paths")
     policy_qualities = retrieve_policy_qualities(directories, True)
-    output_dir = Path("./policy_qualities/" + datetime.now().strftime("%Y.%m.%d_%H.%M.%S"))
-    save_matplotlib_policy_quality(policy_qualities, output_dir)
-    save_config(output_dir / "config.json", config)
+    if not output_path:
+        output_path = Path("./policy_qualities/" + datetime.now().strftime("%Y.%m.%d_%H.%M.%S"))
+    save_matplotlib_policy_quality(policy_qualities, output_path, config.get("gamma", None))
+    if copy_config:
+        save_config(output_path / "config.json", config)
+
+
+def save_data_as_plot(data, output_path, plot_name):
+    _, _, _ = plot_mean_std(data, label="")
+
+    save_dir = Path(output_path)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    plt.tight_layout()
+    plt.savefig(save_dir / f"{plot_name}.pdf", dpi="figure", format="pdf")
+    plt.clf()
+
+
+def save_log_param_as_plot(training_result_paths, log_param, output_path, plot_name):
+    data = []
+    max_length = 0
+    for p in training_result_paths:
+        log = load_log(p / "log.txt")
+        data.append([entry[log_param] for entry in log])
+        max_length = max(max_length, len(data[-1]))
+
+    # Adjust lengths
+    adjusted_data = np.zeros((len(data), max_length))
+    for idx, d in enumerate(data):
+        adjusted_data[idx, :len(d)] = d
+        if max_length - len(d) > 0:
+            adjusted_data[idx, len(d):] = [d[-1]] * (max_length - len(d))
+
+    save_data_as_plot(adjusted_data, output_path, plot_name)
+
+
+def save_action_and_value_losses(config, start_dir, result_path="./results", output_path = None, copy_config=True):
+    """
+    Gets all losses of training processes with the same sub-config, created after start_dir.
+    Next it saves two plots of these losses (action loss and value loss) to the path
+    './losses/{current date and time}'.
+    :param config: dict. Is the sub-config that every other config needs to contain
+    :param start_dir: str. Directories of training process's must come after start_dir, lexicographically.
+    :param result_path: str | Path object. Default value is './results'
+    """
+    training_result_paths = retrieve_result_paths(config, start_dir, result_path)
+    print(f"retrieved {len(training_result_paths)} result paths")
+    # Get losses
+    if not output_path:
+        output_path = Path("./losses/" + datetime.now().strftime("%Y.%m.%d_%H.%M.%S"))
+    save_log_param_as_plot(training_result_paths, "value_loss", output_path, "value_loss")
+    save_log_param_as_plot(training_result_paths, "action_loss", output_path, "action_loss")
+    if copy_config:
+        save_config(output_path / "config.json", config)
+
+
+def retrieve_max_action_and_value_grads(training_result_paths):
+    action_gradients = []
+    value_gradients = []
+    max_action_length = 0
+    max_value_length = 0
+    for p in training_result_paths:
+        log = load_log(p / "log.txt")
+        action_gradients.append([np.absolute(np.array(entry["action_grad"])).max() for entry in log])
+        value_gradients.append([np.absolute(np.array(entry["value_grad"])).max() for entry in log])
+        max_action_length = max(max_action_length, len(action_gradients[-1]))
+        max_value_length = max(max_value_length, len(value_gradients[-1]))
+
+    # Adjust lengths
+    adjusted_action_gradients = np.zeros((len(action_gradients), max_action_length))
+    for idx, d in enumerate(action_gradients):
+        adjusted_action_gradients[idx, :len(d)] = d
+        if max_action_length - len(d) > 0:
+            adjusted_action_gradients[idx, len(d):] = [d[-1]] * (max_action_length - len(d))
+
+    adjusted_value_gradients = np.zeros((len(value_gradients), max_value_length))
+    for idx, d in enumerate(value_gradients):
+        adjusted_value_gradients[idx, :len(d)] = d
+        if max_value_length - len(d) > 0:
+            adjusted_value_gradients[idx, len(d):] = [d[-1]] * (max_value_length - len(d))
+    return adjusted_action_gradients, adjusted_value_gradients
+
+
+def save_matplotlib_visualizations(config, start_dir, result_path="./results"):
+    output_path = Path("./visualizations/" + datetime.now().strftime("%Y.%m.%d_%H.%M.%S"))
+    print("save policy qualities")
+    save_policy_qualities(config, start_dir, result_path=result_path, output_path=output_path, copy_config=False)
+    training_result_paths = retrieve_result_paths(config, start_dir, result_path)
+    print("save value_loss")
+    save_log_param_as_plot(training_result_paths, "value_loss", output_path, "value_loss")
+    print("save action_loss")
+    save_log_param_as_plot(training_result_paths, "action_loss", output_path, "action_loss")
+    action_gradients, value_gradients = retrieve_max_action_and_value_grads(training_result_paths)
+    print("save abs_max_action_grads")
+    save_data_as_plot(action_gradients, output_path, "abs_max_action_grads")
+    print("save abs_max_value_grads")
+    save_data_as_plot(value_gradients, output_path, "abs_max_value_grads")
+
+    save_config(output_path / "config.json", config)
 
 
 def create_visualizations(result_path: Path):
@@ -578,13 +699,13 @@ def create_visualizations(result_path: Path):
         f.close()
 
 
-    print("create training fig")
-    frames = [get_frozen_lake_frame(entry["action_probs"], entry["state_values"], gamma, end_state_values) for entry in
-              log]
-    training_fig = plot_animated_frozen_lake(frames, gamma, end_state_values)
-    with (result_path / "fig_training.html").open("w", encoding="utf-8") as f:
-        f.write(training_fig.to_html())
-        f.close()
+    # print("create training fig")
+    # frames = [get_frozen_lake_frame(entry["action_probs"], entry["state_values"], gamma, end_state_values) for entry in
+    #           log]
+    # training_fig = plot_animated_frozen_lake(frames, gamma, end_state_values)
+    # with (result_path / "fig_training.html").open("w", encoding="utf-8") as f:
+    #     f.write(training_fig.to_html())
+    #     f.close()
 
 
 def main():
@@ -601,7 +722,7 @@ def main():
         dirs.sort()
         result_path = result_path / dirs[-1]
     else:
-        result_path = Path("./results/2023.10.05_16.42.21/")
+        result_path = Path("./interesting_results/sampling/1000000/2023.11.02_08.49.30/")
     create_visualizations(result_path)
 
 
@@ -609,21 +730,6 @@ if __name__ == "__main__":
     # main()
     # result_path = Path("./results/2023.10.29_23.23.19/")
     # create_visualizations(result_path)
-    # config = dict(
-    #     num_iterations=12,
-    #     sub_iterations=[[0.0001, 25, 2], [0.0001, 25, 1]],
-    #     end_state_values=True,
-    #     value_optimizer="Adam",
-    #     action_optimizer="Adam",
-    #     value_lr=0.5,
-    #     action_lr=0.5,
-    #     gamma=0.8,
-    #     eps=0.0,
-    #     shots=None,
-    #     qpe_qubits=0,
-    #     max_qpe_prob=0.8,
-    # )
-    # save_policy_qualities(config, "2023.10.29_23.05.16")
     config = dict(
         num_iterations=12,
         sub_iterations=[[0.0001, 25, 2], [0.0001, 25, 1]],
@@ -634,24 +740,29 @@ if __name__ == "__main__":
         action_lr=0.5,
         gamma=0.8,
         eps=0.0,
-        shots=None,
-        qpe_qubits=0,
+        shots=100000,
+        qpe_qubits=50,
+        max_qpe_prob=0.9999,
     )
-    paths = retrieve_result_paths(config, "2023.10.27_16.37.01")
-
-    import os
-    import shutil
-
-    destination_path = Path("./interesting_results/perfect/")
-    for p in paths:
-        print(f"Copying content of {p}")
-        for file_name in os.listdir(p):
-            # construct full file path
-            extra_dir = p.name
-            source = p / file_name
-            dest_path = destination_path / extra_dir
-            destination = dest_path / file_name
-            # copy only files
-            dest_path.mkdir(parents=True, exist_ok=True)
-            if os.path.isfile(source):
-                shutil.copy(source, destination)
+    # save_action_and_value_losses(config, "", "./interesting_results/qpe/16_0,999")
+    save_matplotlib_visualizations(config, "", result_path="./interesting_results/qpe/50_0,9999/")
+    # paths = retrieve_result_paths(config, "2023.10.27_21.03.05")
+    #
+    # import os
+    # import shutil
+    #
+    # destination_path = Path("./interesting_results/sampling/100000/")
+    # for p in paths:
+    #     print(f"Copying content of {p} to {destination_path/p.name}")
+    #     for file_name in os.listdir(p):
+    #         # construct full file path
+    #         extra_dir = p.name
+    #         source = p / file_name
+    #         dest_path = destination_path / extra_dir
+    #         destination = dest_path / file_name
+    #         # copy only files
+    #         dest_path.mkdir(parents=True, exist_ok=True)
+    #         if os.path.isfile(source):
+    #             shutil.copy(source, destination)
+    #
+    # print(f"copied {len(paths)} paths")

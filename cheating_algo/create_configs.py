@@ -32,11 +32,11 @@ def main():
     eps_list = [0.0]
     # shots_list = [10, 50, 100, 1000, 10000, 100000, 1000000, None]
     # qpe_qubits_list = [0, 8, 16, 32, 64]
-    shots_list = [100000]
-    qpe_qubits_list = [16]
-    max_qpe_prob_list = [0.999]
+    shots_list = [10000000]
+    qpe_qubits_list = [0]
+    max_qpe_prob_list = [0.8]
 
-    num_repetitions = 8
+    num_repetitions = 1
 
     num = 1
     for _ in range(num_repetitions):

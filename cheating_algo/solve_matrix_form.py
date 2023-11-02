@@ -145,7 +145,6 @@ def get_opt_policy(gamma):
             best_a = torch.tensor([env[:, s*4 + a] @ values for a in range(4)]).argmax()
             policy[s, best_a] = 1.
 
-        print(f"Difference: {torch.abs(old_policy - policy).sum()}")
         if torch.abs(old_policy - policy).sum() < 1e-10:
             break
 
@@ -177,8 +176,12 @@ def calculate_policy_quality(policy, gamma):
     P = env @ pi    # transposed transistion matrix
     R = get_reward_vector(P)
     v = compute_values(I, gamma, P.T, R)
-    return v[12]
+    return v[12].item()
 
+
+def calculate_optimal_policy_quality(gamma):
+    policy, v = get_opt_policy(gamma)
+    return v[12].item()
 
 
 def main():
