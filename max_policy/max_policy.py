@@ -5,6 +5,16 @@ import numpy as np
 
 
 def get_qpe_output_prob(delta, l, N):
+    """
+    Computes the probability of receiving the outcome |(b+l)mod N> given the Equation 5.26 of
+    Quantum Computation and Quantum Information by Nielsen & Chuang.
+    Phi is the true phase used in a QPE, b is its closest log_2(N) qubit approximation with b < phi.
+    delta = phi - b/N
+    :param delta: float
+    :param l: int
+    :param N: int is 2^{no. qubits}
+    :return: float
+    """
     exp1 = N*delta - l
     exp2 = delta - l/N
     if exp2 == 0:
@@ -14,6 +24,13 @@ def get_qpe_output_prob(delta, l, N):
 
 
 def best_phi_approximation(phi: torch.tensor, num_bits: int):
+    """
+    Given a float 0 <= phi <= 1, this function calculates the closest n bit approximation b of phi*(2**n),
+    with b < phi*(2**n) and returns b
+    :param phi: float 0 <= phi <= 1
+    :param num_bits: int number of bit used to approximate phi
+    :return: float b
+    """
     phi = phi.clone().detach()
     b_bits = torch.zeros(num_bits)
     for bit in range(1, num_bits+1):
@@ -36,6 +53,13 @@ def best_phi_approximation(phi: torch.tensor, num_bits: int):
 qpe_result_prob = dict()
 
 def get_qpe_result_prob(phi: float, num_qubits: int):
+    """
+    Computes the probabilities of the outcomes of a QPE, given an angle phi and num_qubits many qubits to conduct the
+    QPE.
+    :param phi: float angle used in the QPE estimation
+    :param num_qubits: int determines the number of qubits the QPE has to approximate with
+    :return: torch.tensor containing estimates
+    """
     global qpe_result_prob
     if phi.item() in qpe_result_prob:
         print(f"{phi.item()} already in qpe_result_prob")
@@ -78,6 +102,18 @@ def get_qpe_result_prob(phi: float, num_qubits: int):
 
 
 def get_prob_of_receiving_max(phi1, phi2, num_qubits):
+    """
+    Given phi1 and phi2 and the num_qubits, the function computes an estimate of phi1 and phi2 via a QPE with
+    num_qubits. Given these estimates, it determines sin(phi1 * π)^2 > sin(phi2 * π)^2
+    The output is a tuple consisting of 4 entries. They state the following:
+    1. probability of phi1 > phi2
+    2. probability of ph1 == phi2
+    3. probability of ph1 < phi2
+    4. probability of ph1 == phi2 + probability of ph1 < phi2
+    :param phi1: float
+    :param phi2: float
+    :return: float, float, float, float
+    """
     result_prob1, result_value1 = get_qpe_result_prob(phi1, num_qubits)
     result_prob1_minus, result_value1_minus = get_qpe_result_prob(1 - phi1, num_qubits)
     for idx, v1 in enumerate(result_value1):
@@ -114,6 +150,17 @@ def get_prob_of_receiving_max(phi1, phi2, num_qubits):
 
 
 def get_prob_of_opt_max(phi1, phi2):
+    """
+    Given phi1 and phi2, this method returns the exact result of sin(phi1 * π)^2 > sin(phi2 * π)^2
+    The output is a tuple consisting of 4 entries. They state the following:
+    1. probability of sin(phi1 * π)^2 > sin(phi2 * π)^2
+    2. probability of sin(phi1 * π)^2 == sin(phi2 * π)^2
+    3. probability of sin(phi1 * π)^2 < sin(phi2 * π)^2
+    4. Total probability
+    :param phi1: float
+    :param phi2: float
+    :return: int, int, int ,int
+    """
     if phi1 > 0.5:
         phi1 = 1 - phi1
     if phi2 > 0.5:
@@ -127,7 +174,18 @@ def get_prob_of_opt_max(phi1, phi2):
         return 0, 1, 0, 1
 
 
-def main():
+def plot_max_policy():
+    """
+    First this function retrieves 2**7 phases linearly spaced in the interval [0, 1]. Next compares each phase with
+    the other. This comparison calculates the probabilities of phi1 > phi2, phi1 == phi2, phi1 < phi2 and
+    (phi1 == phi2) + (phi1 < phi2). From this it saves all four variants as a heatmap in:
+    ./max_phi0.pdf, ./equal.pdf, ./max_phi1.pdf and ./less_equal_phi0.pdf
+    Continuing it calculates the exact same probabilities, except of the perfect max operation. Since the phi's
+    are sorted, it uses their indices to sort them and it saves the result to:
+    ./true_max_phi0.pdf, ./true_equal.pdf, ./true_max_phi1.pdf and ./true_less_equal_phi0.pdf
+    Finally, we save the difference between these plots to:
+    ./diff_max_phi0.pdf, ./diff_equal.pdf, ./diff_max_phi1.pdf and ./diff_less_equal_phi0.pdf
+    """
     num_qubits = 4
     num_phis = 2**(num_qubits+3)
     phi1 = torch.arange(0, num_phis+1, dtype=torch.float64) / num_phis / 2.
@@ -215,4 +273,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    plot_max_policy()
