@@ -1,3 +1,4 @@
+# This file was copied from the project https://github.com/UST-QuAntiL/qhana-plugin-runner in compliance with its license
 from enum import Enum
 import torch
 
@@ -7,7 +8,7 @@ class WeightInitEnum(Enum):
     uniform = "uniform"
     zero = "zero"
 
-    def init_params(self, shape, dtype=torch.float64):
+    def init_params(self, shape, dtype=torch.float64):  # Added this method
         """
         Initialises a torch.tensor according to the chosen WeightInitEnum and the given shape and dtype.
         :param shape: shape that the tensor should have

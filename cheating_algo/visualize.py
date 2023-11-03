@@ -494,6 +494,14 @@ def create_policy_quality_file(result_path, gamma=None, log=None, action_probs=N
 
 
 def plot_mean_std(data, label=""):
+    """
+    Given a 2d np.array, the second dimension is the "x-axis" and the first dimension encodes the values per step.
+    This method takes the mean and the std along axis=0 and plots the mean as a bold line and the std is a shaded are
+    around the mean with thickness of two stds, i.e. mean-std to mean+std
+    :param data: 2d np array
+    :param label: optional label for the mean
+    :return: fig, axis and x ticks
+    """
     x = np.arange(data.shape[1])
     mean = np.mean(data, axis=0)
     std = np.std(data, axis=0)
@@ -505,6 +513,16 @@ def plot_mean_std(data, label=""):
 
 
 def save_mean_std_plot(data, save_path, file_name, x_label, y_label):
+    """
+    Given a 2d np.array, this function plots the mean and the std in a plot and saves it to the specified save_path.
+    The name of the saved file is set to the parameter file_name and the x-axis and y-axis are labeled with x_label and
+    y_label respectfully.
+    :param data: 2d np.array containing the data
+    :param save_path: str | Path path to to save the file to
+    :param file_name: str name the file should have
+    :param x_label: str label for the x-axis
+    :param y_label: str label for the y-axis
+    """
     fig, ax, x = plot_mean_std(data)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
@@ -563,19 +581,27 @@ def save_policy_qualities(config, start_dir, result_path="./results", output_pat
         save_config(output_path / "config.json", config)
 
 
-def save_data_as_plot(data, output_path, plot_name, x_label, y_label):
-    _, _, _ = plot_mean_std(data, label="")
-
-    plt.xlabel(x_label)
-    plt.ylabel(y_label)
-    save_dir = Path(output_path)
-    save_dir.mkdir(parents=True, exist_ok=True)
-    plt.tight_layout()
-    plt.savefig(save_dir / f"{plot_name}.pdf", dpi="figure", format="pdf")
-    plt.clf()
-
-
 def save_two_data_as_plot(data1, data2, output_path, plot_name, label1, label2, x_label, y_label1, y_label2):
+    """
+    Given two 2d np.arrays, this function plots the mean as a bold line and the std as an area that is 2 std's thick.
+    Each dataset has its own y-axis, but they share the x-axis. The data1 is plotted blue and data2 is plotted
+    orange. The other parameters are used as follows:
+    - label1 (resp. label2) is the label of the mean, in a legend
+    - x_label is the label of the x-axis
+    - y_label1 (resp. y_label2) is the label of the y-axis for data1 (resp. data2)
+    - output_path is the path the result will be saved to
+    - plot_name is the name of the output file
+    :param data1: 2d np.array
+    :param data2: 2d np.array
+    :param output_path: str | Path
+    :param plot_name: str
+    :param label1: str
+    :param label2: str
+    :param x_label: str
+    :param y_label1: str
+    :param y_label2: str
+    """
+
     color1 = 'tab:blue'
     x = np.arange(data1.shape[1])
     mean1 = np.mean(data1, axis=0)
@@ -606,6 +632,17 @@ def save_two_data_as_plot(data1, data2, output_path, plot_name, label1, label2, 
 
 
 def save_log_param_as_plot(training_result_paths, log_param, output_path, plot_name, x_label, y_label):
+    """
+    Given a list of paths, containing training results and a log_param, the method goes through the training results,
+    retrieves the parameter log_param from the logs. Then it plots this data with save_mean_std_plot and saves the
+    resulting to 'output_path/plot_name.pdf'. It also labels the x- and y-axis with x_label and y_label
+    :param training_result_paths: list of paths
+    :param log_param: str
+    :param output_path: str | Path
+    :param plot_name: str name of output file
+    :param x_label: str
+    :param y_label: str
+    """
     data = []
     max_length = 0
     for p in training_result_paths:
@@ -620,10 +657,26 @@ def save_log_param_as_plot(training_result_paths, log_param, output_path, plot_n
         if max_length - len(d) > 0:
             adjusted_data[idx, len(d):] = [d[-1]] * (max_length - len(d))
 
-    save_data_as_plot(adjusted_data, output_path, plot_name, x_label, y_label)
+    save_mean_std_plot(adjusted_data, output_path, plot_name, x_label, y_label)
 
 
 def save_two_log_param_as_plot(training_result_paths, log_param1, log_param2, output_path, plot_name, x_label, y_label1, y_label2):
+    """
+    Given a list of paths, containing training results and two log parameters log_param1 and log_param2, the method
+    goes through the training results, retrieves the parameter log_param1 and log_param2 from the logs.
+    Then it plots both datas in the same plot, but with different y-axis. The plot is the mean along axis=0
+    and a shaded area of the standard deviations std along axis=0. The shaded area is 2 std thick. The plot is then
+    saved in the path output_path as plot_name.pdf. It also labels the x-axis with x_label and the two
+    y-axes with y_label1 and y_label2 respectfully.
+    :param training_result_paths: list of paths
+    :param log_param1: str
+    :param log_param2: str
+    :param output_path: str | Path
+    :param plot_name: str name of output file
+    :param x_label: str
+    :param y_label1: str
+    :param y_label2: str
+    """
     data1 = []
     max_length1 = 0
     for p in training_result_paths:
@@ -676,6 +729,14 @@ def save_action_and_value_losses(config, start_dir, result_path="./results", out
 
 
 def retrieve_max_action_and_value_grads(training_result_paths):
+    """
+    Given a list of paths containing training results, this function retrieves the gradient of the action QNN and the
+    value QNN. For each gradient, it takes the maximum value, after first taking the absolute value of the gradients
+    at each training step.
+    :param training_result_paths:
+    :return: 2d np.array, 2d np.array First is the result of the action gradients and second is the result of the value
+    gradients.
+    """
     action_gradients = []
     value_gradients = []
     max_action_length = 0
@@ -703,6 +764,22 @@ def retrieve_max_action_and_value_grads(training_result_paths):
 
 
 def save_matplotlib_visualizations(config, start_dir, result_path="./results"):
+    """
+    Given a config, it searchs in the result_path for training processes for which this config is a sub-config of the
+    training process. It starts its search lexicographically, after the directory start_dir. Given these training
+    processes, it plots the following:
+    - mean + std of policy quality
+    - mean + std of action and value loss (different y-axis)
+    - mean + std of value loss
+    - mean + std of action loss
+    - mean + std of maximum of the absolute gradient. Action and value in one plot with two y-axes.
+    - mean + std of maximum of the absolute gradient of the action parameters
+    - mean + std of maximum of the absolute gradient of the value parameters
+    These plots are all saved into the directory './visualizations/{current_datetime}/
+    :param config: config used to search training processes
+    :param start_dir: directory to start the search from (lexicographically)
+    :param result_path: str | Path where this method will search for matching training processes
+    """
     plt.rcParams.update({'font.size': 15, 'lines.linewidth': 2})
     output_path = Path("./visualizations/" + datetime.now().strftime("%Y.%m.%d_%H.%M.%S"))
     print("save policy qualities")
@@ -716,9 +793,9 @@ def save_matplotlib_visualizations(config, start_dir, result_path="./results"):
     action_gradients, value_gradients = retrieve_max_action_and_value_grads(training_result_paths)
     save_two_data_as_plot(action_gradients, value_gradients, output_path, "abs_max_action_value_grads", "", "", "Training steps", "Maximum absolute Action Gradient", "Maximum absolute Value Gradient")
     print("save abs_max_action_grads")
-    save_data_as_plot(action_gradients, output_path, "abs_max_action_grads", "Trainings step", "Maximum absolute gradient")
+    save_mean_std_plot(action_gradients, output_path, "abs_max_action_grads", "Trainings step", "Maximum absolute gradient")
     print("save abs_max_value_grads")
-    save_data_as_plot(value_gradients, output_path, "abs_max_value_grads", "Trainings step", "Maximum absolute gradient")
+    save_mean_std_plot(value_gradients, output_path, "abs_max_value_grads", "Trainings step", "Maximum absolute gradient")
 
     save_config(output_path / "config.json", config)
 
