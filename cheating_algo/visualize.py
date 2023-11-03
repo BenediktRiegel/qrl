@@ -504,8 +504,10 @@ def plot_mean_std(data, label=""):
     return fig, ax, x
 
 
-def save_mean_std_plot(data, save_path, file_name):
+def save_mean_std_plot(data, save_path, file_name, x_label, y_label):
     fig, ax, x = plot_mean_std(data)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
     save_dir = Path(save_path)
     save_dir.mkdir(parents=True, exist_ok=False)
     plt.legend()
@@ -531,6 +533,8 @@ def save_matplotlib_policy_quality(policy_qualities, save_path, gamma=None):
         y_opt = np.array([optimal_v]*len(x))
         ax.plot(x, y_opt, label="Optimal Quality")
 
+    plt.xlabel("Training step")
+    plt.ylabel("Quality")
     save_dir = Path(save_path)
     save_dir.mkdir(parents=True, exist_ok=False)
     plt.legend()
@@ -559,8 +563,40 @@ def save_policy_qualities(config, start_dir, result_path="./results", output_pat
         save_config(output_path / "config.json", config)
 
 
-def save_data_as_plot(data, output_path, plot_name):
+def save_data_as_plot(data, output_path, plot_name, x_label, y_label):
     _, _, _ = plot_mean_std(data, label="")
+
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    save_dir = Path(output_path)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    plt.tight_layout()
+    plt.savefig(save_dir / f"{plot_name}.pdf", dpi="figure", format="pdf")
+    plt.clf()
+
+
+def save_two_data_as_plot(data1, data2, output_path, plot_name, label1, label2, x_label, y_label1, y_label2):
+    color1 = 'tab:blue'
+    x = np.arange(data1.shape[1])
+    mean1 = np.mean(data1, axis=0)
+    std1 = np.std(data1, axis=0)
+    fig, ax1 = plt.subplots()
+    ax1.set_xlabel(x_label)
+    ax1.fill_between(x, mean1 + std1, mean1 - std1, alpha=0.2, color=color1)
+    ax1.plot(x, mean1, label=label1, color=color1)
+    ax1.set_ylabel(y_label1, color=color1)
+    ax1.tick_params(axis='y', labelcolor=color1)
+    ax1.margins(x=0)
+
+    color2 = "tab:orange"
+    ax2 = ax1.twinx()
+    x2 = np.arange(data2.shape[1])
+    mean2 = np.mean(data2, axis=0)
+    std2 = np.std(data2, axis=0)
+    ax2.fill_between(x2, mean2 + std2, mean2 - std2, alpha=0.2, color=color2)
+    ax2.plot(x2, mean2, label=label2, color=color2)
+    ax2.set_ylabel(y_label2, color=color2)
+    ax2.tick_params(axis='y', labelcolor=color2)
 
     save_dir = Path(output_path)
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -569,7 +605,7 @@ def save_data_as_plot(data, output_path, plot_name):
     plt.clf()
 
 
-def save_log_param_as_plot(training_result_paths, log_param, output_path, plot_name):
+def save_log_param_as_plot(training_result_paths, log_param, output_path, plot_name, x_label, y_label):
     data = []
     max_length = 0
     for p in training_result_paths:
@@ -584,7 +620,39 @@ def save_log_param_as_plot(training_result_paths, log_param, output_path, plot_n
         if max_length - len(d) > 0:
             adjusted_data[idx, len(d):] = [d[-1]] * (max_length - len(d))
 
-    save_data_as_plot(adjusted_data, output_path, plot_name)
+    save_data_as_plot(adjusted_data, output_path, plot_name, x_label, y_label)
+
+
+def save_two_log_param_as_plot(training_result_paths, log_param1, log_param2, output_path, plot_name, x_label, y_label1, y_label2):
+    data1 = []
+    max_length1 = 0
+    for p in training_result_paths:
+        log = load_log(p / "log.txt")
+        data1.append([entry[log_param1] for entry in log])
+        max_length1 = max(max_length1, len(data1[-1]))
+
+    # Adjust lengths
+    adjusted_data1 = np.zeros((len(data1), max_length1))
+    for idx, d in enumerate(data1):
+        adjusted_data1[idx, :len(d)] = d
+        if max_length1 - len(d) > 0:
+            adjusted_data1[idx, len(d):] = [d[-1]] * (max_length1 - len(d))
+
+    data2 = []
+    max_length2 = 0
+    for p in training_result_paths:
+        log = load_log(p / "log.txt")
+        data2.append([entry[log_param2] for entry in log])
+        max_length2 = max(max_length2, len(data2[-1]))
+
+    # Adjust lengths
+    adjusted_data2 = np.zeros((len(data2), max_length2))
+    for idx, d in enumerate(data2):
+        adjusted_data2[idx, :len(d)] = d
+        if max_length2 - len(d) > 0:
+            adjusted_data2[idx, len(d):] = [d[-1]] * (max_length2 - len(d))
+
+    save_two_data_as_plot(adjusted_data1, adjusted_data2, output_path, plot_name, "", "", x_label, y_label1, y_label2)
 
 
 def save_action_and_value_losses(config, start_dir, result_path="./results", output_path = None, copy_config=True):
@@ -635,19 +703,22 @@ def retrieve_max_action_and_value_grads(training_result_paths):
 
 
 def save_matplotlib_visualizations(config, start_dir, result_path="./results"):
+    plt.rcParams.update({'font.size': 15, 'lines.linewidth': 2})
     output_path = Path("./visualizations/" + datetime.now().strftime("%Y.%m.%d_%H.%M.%S"))
     print("save policy qualities")
     save_policy_qualities(config, start_dir, result_path=result_path, output_path=output_path, copy_config=False)
     training_result_paths = retrieve_result_paths(config, start_dir, result_path)
+    save_two_log_param_as_plot(training_result_paths, "action_loss", "value_loss", output_path, "action_value_loss", "Trainings step", "Action loss", "Value loss")
     print("save value_loss")
-    save_log_param_as_plot(training_result_paths, "value_loss", output_path, "value_loss")
+    save_log_param_as_plot(training_result_paths, "value_loss", output_path, "value_loss", "Trainings step", "Loss")
     print("save action_loss")
-    save_log_param_as_plot(training_result_paths, "action_loss", output_path, "action_loss")
+    save_log_param_as_plot(training_result_paths, "action_loss", output_path, "action_loss", "Trainings step", "Loss")
     action_gradients, value_gradients = retrieve_max_action_and_value_grads(training_result_paths)
+    save_two_data_as_plot(action_gradients, value_gradients, output_path, "abs_max_action_value_grads", "", "", "Training steps", "Maximum absolute Action Gradient", "Maximum absolute Value Gradient")
     print("save abs_max_action_grads")
-    save_data_as_plot(action_gradients, output_path, "abs_max_action_grads")
+    save_data_as_plot(action_gradients, output_path, "abs_max_action_grads", "Trainings step", "Maximum absolute gradient")
     print("save abs_max_value_grads")
-    save_data_as_plot(value_gradients, output_path, "abs_max_value_grads")
+    save_data_as_plot(value_gradients, output_path, "abs_max_value_grads", "Trainings step", "Maximum absolute gradient")
 
     save_config(output_path / "config.json", config)
 
