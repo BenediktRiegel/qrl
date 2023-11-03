@@ -10,18 +10,6 @@ def main():
     output_path = "./results/"
     output_dir = "./results/hyperparameter_search"
     end_state_values = True
-    # 'num_iterations', 'sub_iterations', 'value_optimizer', 'action_optimizer', 'value_lr', 'action_lr', 'gamma', 'eps', 'shots', 'qpe_qubits', 'max_qpe_prob'
-    # num_iterations_list = [12, 24]
-    # sub_iterations_list = [[[0.0001, 25, 2], [0.0001, 25, 1]], [[0.0001, 50, 2], [0.0001, 50, 1]], [[0.0001, 100, 2], [0.0001, 100, 1]]]
-    # value_optimizer_list = ["Adam"]
-    # action_optimizer_list = ["Adam"]
-    # value_lr_list = [0.5, 0.25]
-    # action_lr_list = [0.5, 0.25]
-    # gamma_list = [0.8, 0.9]
-    # eps_list = [0.0]
-    # shots_list = [10, 50, 100, 1000, 10000, 100000, 1000000, None]
-    # qpe_qubits_list = [0, 8, 16, 32, 64]
-    # max_qpe_prob_list = [0.8]
     num_iterations_list = [12]
     sub_iterations_list = [[[0.0001, 25, 2], [0.0001, 25, 1]]]
     value_optimizer_list = ["Adam"]
@@ -30,8 +18,6 @@ def main():
     action_lr_list = [0.5]
     gamma_list = [0.8]
     eps_list = [0.0]
-    # shots_list = [10, 50, 100, 1000, 10000, 100000, 1000000, None]
-    # qpe_qubits_list = [0, 8, 16, 32, 64]
     shots_list = [10000000]
     qpe_qubits_list = [0]
     max_qpe_prob_list = [0.8]
@@ -51,8 +37,6 @@ def main():
                                     for shots in shots_list:
                                         for qpe_qubits in qpe_qubits_list:
                                             for max_qpe_prob in max_qpe_prob_list:
-                                                # if qpe_qubits > 0 and (not shots or shots > 100):
-                                                #     continue
                                                 config = dict(
                                                     num_iterations=num_iterations,
                                                     sub_iterations=sub_iterations,

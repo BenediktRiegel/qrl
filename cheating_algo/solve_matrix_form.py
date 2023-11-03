@@ -1,9 +1,4 @@
-from typing import List
-import time
 import torch
-# from visualize.rot_swap_value import get_frozen_lake_frame, plot_animated_frozen_lake, plot_loss
-# from visualize.action_value_info import get_action_probs, get_state_values
-from logger import Logger
 
 
 env_matrix = None   # Saves the environmental matrix by get_env_matrix, to avoid multiple computations
@@ -180,6 +175,11 @@ def calculate_policy_quality(policy, gamma):
 
 
 def calculate_optimal_policy_quality(gamma):
+    """
+    Given gamma this function calculates the policy quality of the optimal policy and returns it
+    :param gamma: float dicount factor
+    :return: float
+    """
     policy, v = get_opt_policy(gamma)
     return v[12].item()
 

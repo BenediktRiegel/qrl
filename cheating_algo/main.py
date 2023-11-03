@@ -43,36 +43,7 @@ def run(config_path, config, console_prints=False):
 
     print("init action and value parameters")
     action_params = WeightInitEnum.standard_normal.init_params((16, 3), dtype=torch.float64)
-    # import torch
-    # # right: 000, down: 010, left 100, up: 110
-    # action_params = torch.tensor([
-    #     [0, 0, 0],
-    #     [0, 0, 0],
-    #     [0, 0, 0],
-    #     [0, 0, 0],
-    #
-    #     [1, 1, 0],
-    #     [0, 1, 0],
-    #     [1, 0, 0],
-    #     [0, 0, 0],
-    #
-    #     [1, 0, 0],
-    #     [0, 0, 0],
-    #     [0, 0, 0],
-    #     [0, 0, 0],
-    #
-    #     [1, 0, 0],
-    #     [1, 1, 0],
-    #     [1, 0, 0],
-    #     [1, 1, 0],
-    # ])*torch.pi
-    # value_params = WeightInitEnum.zero.init_params(16, dtype=torch.float64) + torch.pi
     value_params = WeightInitEnum.standard_normal.init_params(16, dtype=torch.float64)
-    # from torch import load
-    # action_params = load("./results/2023.10.07_11.12.11/action_params")
-    # value_params = load("./results/2023.10.07_11.12.11/value_qnn_param")
-    # action_params.requires_grad = True
-    # value_params.requires_grad = True
 
     value_optimizer = value_optimizer_enum.get_optimizer([value_params], value_lr)
     action_optimizer = action_optimizer_enum.get_optimizer([action_params], action_lr)

@@ -1,4 +1,4 @@
-from typing import Generator, List, Tuple
+from typing import Generator, Tuple
 from pathlib import Path
 from json import load, dump
 from datetime import datetime

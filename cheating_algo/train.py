@@ -1,31 +1,33 @@
 import time
 import torch
-# from visualize.rot_swap_value import get_frozen_lake_frame, plot_animated_frozen_lake, plot_loss
-# from visualize.action_value_info import get_action_probs, get_state_values
 from logger import Logger
 from numpy import sqrt
-from struct import pack, unpack
-from binascii import hexlify
 
-
-trans_model = None
-# terminal_states = {5, 7, 11, 12, 15}
-# goal_states = {15}
-terminal_states = {0, 3, 7, 9, 11}
-hole_states = {}
-# goal_states = {}
-# hole_states = {0, 7, 9, 11}
-goal_states = {3}
-v_max = None
+# Defining some global variables
+trans_model = None  # Allows to save the environment, instead of recalculating it
+terminal_states = {0, 3, 7, 9, 11}  # Set of terminal states
+hole_states = {}    # Set of holes. Contrary to FrozenLake-v1, these holes give a reward of -1
+goal_states = {3}   # Set of goals.
+v_max = None    # |v|_max
 
 
 def get_v_max(gamma, end_state_values):
+    """
+    Given the discount factor gamma and end_state_values determining if terminal states also have values, this function returns
+    |v|_max.
+    :param gamma: float discount factor
+    :param end_state_values: bool
+    """
     global v_max
     if v_max is None:
         v_max = (1. / (1-gamma)) if end_state_values else 1.
     return v_max
 
 def get_trans_model():
+    """
+    Creates a multidimensional list containing for entry s, a, s' the probability p(s' | s, a) and returns it
+    :return: List
+    """
     global trans_model
     if trans_model is None:
         global terminal_states
@@ -66,6 +68,14 @@ def get_trans_model():
 
 
 def get_action_probs(action_params, s, eps: float = 0.0):
+    """
+    Given the parameters of the action QNN, a state s and ε for an ε-greedy policy. This function returns the
+    probabilities π(a | s) for each a. If eps is > 0, then it is turned into an ε-greedy policy.
+    :param action_params: List containing the action parameters for the given state
+    :param s: int A state
+    :param eps: float
+    :return: torch.tensor containing floats
+    """
     p = action_params[s]
     probs = torch.square(torch.tensor([torch.cos((p[0] + p[2])/2.), torch.sin((p[0] + p[2])/2.)]))
     probs = torch.kron(probs, torch.square(torch.tensor([torch.cos((p[1] + p[2])/2.), torch.sin((p[1] + p[2])/2.)])))
@@ -74,10 +84,23 @@ def get_action_probs(action_params, s, eps: float = 0.0):
 
 
 def get_policy(action_params, eps: float = 0.0):
+    """
+    Returns the fully determined probability distribution of the policy, given the action parameters and ε.
+    :param action_params: list parameters of the action QNN
+    :param ε: float used to turn the policy into a ε-greedy policy.
+    :return: 2d list containing the distribution of policy π
+    """
     return [get_action_probs(action_params, s, eps) for s in range(16)]
 
 
 def get_values(value_params, end_state_values):
+    """
+    Return the state values, given the parameters of the value QNN and end_state_values. If end_state_values is true,
+    then the values of terminal states are set to 0.
+    :param value_params: list containing the parameters of the value QNN
+    :param end_state_values: bool
+    :return: list of floats
+    """
     values = torch.cos(value_params / 2.)
     if not end_state_values:
         values[list(terminal_states)] = 0
@@ -85,6 +108,14 @@ def get_values(value_params, end_state_values):
 
 
 def value_loss(policy, trans_model, v, next_v, gamma, end_state_values, without_factors=False):
+    """
+    Compute the value loss and returns it
+    :param policy: 2d list containing the probability distribution of the policy
+    :param trans_model: 3d list containing the transition probabilities of the environment
+    :param v: list containing the state values
+    :param next_v: list containing potentially different state values
+    :param gamma: float discount factor
+    """
     # v_max = r_max / (1 - gamma) --r_max=1--> v_max = 1/(1 - gamma) -> R / v_max = R * (1 - gamma)
     global goal_states
     v_max = get_v_max(gamma, end_state_values)
@@ -104,6 +135,22 @@ def value_loss(policy, trans_model, v, next_v, gamma, end_state_values, without_
 
 
 def sample_value_loss(policy, trans_model, v, next_v, gamma, end_state_values, shots, qpe_qubits: int, max_qpe_prob: float):
+    """
+    samples from the value loss, either with a qpe estimation or directly as the quantum circuit would do.
+    If shots is None, then it returns the exact loss
+    Else if qpe_qubits <= 0, then it simulates sampling directly from the quantum circuit
+    else if qpe_qubits > 0, then it estimates the result of the QPE
+    :param policy: 2d list containing the probability distribution of the policy
+    :param trans_model: 3d list containing the transition probabilities of the environment
+    :param v: list containing the state values
+    :param next_v: list containing potentially different state values
+    :param gamma: float discount factor
+    :param end_state_values: bool
+    :param shots: int number of shots
+    :param qpe_qubits: int number of qubits used in the QPE
+    :param max_qpe_prob: float probability threshold for the qpe
+    :return: float value loss
+    """
     v_max = get_v_max(gamma, end_state_values)
     if shots is None:
         return value_loss(policy, trans_model, v, next_v, gamma, end_state_values, without_factors=True) * (v_max**2)
@@ -123,6 +170,18 @@ def sample_value_loss(policy, trans_model, v, next_v, gamma, end_state_values, s
 
 
 def compute_value_grad(value_params, policy, next_values, trans_model, gamma, end_state_values, shots, qpe_qubits, max_qpe_prob):
+    """
+    Compute the gradients with the parameter shift rule by sampling the value loss.
+    :param value_params: 1d list containing the parameters of the value QNN
+    :param policy: 2d list containing the probability distribution of the policy
+    :param next_values: list containing potentially different state values
+    :param trans_model: 3d list containing the transition probabilities of the environment
+    :param gamma: float discount factor
+    :param end_state_values: bool
+    :param shots: int number of shots
+    :param qpe_qubits: int number of qubits used in the QPE
+    :param max_qpe_prob: float probability threshold for the qpe
+    """
     value_params.grad = torch.zeros(value_params.shape, dtype=value_params.dtype)
     shift = torch.pi / 4.
     for idx, p in enumerate(value_params):
@@ -136,6 +195,15 @@ def compute_value_grad(value_params, policy, next_values, trans_model, gamma, en
 
 
 def action_loss(policy, trans_model, v, gamma, end_state_values, without_factors=False):
+    """
+    Computes the exact action loss and returns it. If without_factors is True, then the loss will not be scaled
+    at the end.
+    :param policy: 2d list containing the probability distribution of the policy
+    :param v: list containing the state values
+    :param gamma: float discount factor
+    :param end_state_values: bool
+    :param without_factors: bool
+    """
     # v_max = r_max / (1 - gamma) --r_max=1--> v_max = 1/(1 - gamma) -> R / v_max = R * (1 - gamma)
     global goal_states
     v_max = get_v_max(gamma, end_state_values)
@@ -156,6 +224,21 @@ def action_loss(policy, trans_model, v, gamma, end_state_values, without_factors
 
 
 def sample_action_loss(policy, trans_model, v, gamma, end_state_values, shots: int, qpe_qubits: int, max_qpe_prob: float):
+    """
+    Returns the sampled action loss.
+    If shots is None, then it returns the exact loss
+    Else if qpe_qubits <= 0, then it simulates sampling directly from the quantum circuit
+    else if qpe_qubits > 0, then it estimates the result of the QPE
+    :param policy: 2d list containing the probability distribution of the policy
+    :param trans_model: 3d list containing the transition probabilities of the environment
+    :param v: list containing the state values
+    :param gamma: float discount factor
+    :param end_state_values: bool
+    :param shots: int number of shots
+    :param qpe_qubits: int number of qubits used in the QPE
+    :param max_qpe_prob: float probability threshold for the qpe
+    :return: float sampled action loss
+    """
     v_max = get_v_max(gamma, end_state_values)
     if shots is None:
         return action_loss(policy, trans_model, v, gamma, end_state_values, without_factors=True) * v_max
@@ -175,6 +258,18 @@ def sample_action_loss(policy, trans_model, v, gamma, end_state_values, shots: i
 
 
 def compute_action_grad(action_params, v, trans_model, gamma, end_state_values, shots, qpe_qubits, max_qpe_prob):
+    """
+    Computes the gradients for the action parameters. It uses the parameter shift rule, hence it calculates the loss
+    twice per parameter. The function sample_action_loss is used to calculate the loos.
+    :param action_params: 2d list containing the parameters of the action QNN
+    :param v: list containing the state values
+    :param trans_model: 3d list containing the transition probabilities of the environment
+    :param gamma: float discount factor
+    :param end_state_values: bool
+    :param shots: int number of shots
+    :param qpe_qubits: int number of qubits used in the QPE
+    :param max_qpe_prob: float probability threshold for the qpe
+    """
     action_params.grad = torch.zeros(action_params.shape, dtype=action_params.dtype)
     shift = torch.pi / 4.
     for s, state_p in enumerate(action_params):
@@ -189,6 +284,16 @@ def compute_action_grad(action_params, v, trans_model, gamma, end_state_values, 
 
 
 def get_qpe_output_prob(delta, l, N):
+    """
+    Computes the probability of receiving the outcome |(b+l)mod N> given the Equation 5.26 of
+    Quantum Computation and Quantum Information by Nielsen & Chuang.
+    Phi is the true phase used in a QPE, b is its closest log_2(N) qubit approximation with b < phi.
+    delta = phi - b/N
+    :param delta: float
+    :param l: int
+    :param N: int is 2^{no. qubits}
+    :return: float
+    """
     exp1 = N*delta - l
     exp2 = delta - l/N
     if exp2 == 0:
@@ -198,6 +303,13 @@ def get_qpe_output_prob(delta, l, N):
 
 
 def best_phi_approximation(phi: torch.tensor, num_bits: int):
+    """
+    Given a float 0 <= phi <= 1, this function calculates the closest n bit approximation b of phi*(2**n),
+    with b < phi*(2**n) and returns b
+    :param phi: float 0 <= phi <= 1
+    :param num_bits: int number of bit used to approximate phi
+    :return: float b
+    """
     phi = phi.clone().detach()
     b_bits = torch.zeros(num_bits)
     for bit in range(1, num_bits+1):
@@ -219,6 +331,25 @@ def best_phi_approximation(phi: torch.tensor, num_bits: int):
 
 
 def sample_qpe(phi: torch.tensor, num_qubits: int, shots: int, max_prob: float):
+    """
+    Given an angle 0 <= phi <= 1, this method approximates the behaviour of a QPE run with the angle phi. It does
+    the estimation shots times and returns them as a list. The parameter num_qubits determines how many qubits the QPE
+    has to approximate phi. It does roughly the following:
+    1. compute best phi approximation b
+    2. delta = phi - b
+    3. If delta == 0, return b shot times
+    4. Determine random value x between 0 and 1 uniformly
+    5. Go through the list of possible l's in this order [1, 0, 2, -1, 3, -2, 4, -3, ....]
+    6. Check if x is in the interval of the current l. If so, add ((b*N + l)mod N) / N as one estimation
+    7. If x is over a certain interval limit (max_prob) then add worst case value as an estimate
+    8. repeat shot many times
+    9. return list of estimates
+    :param phi: float angle used in the QPE estimation
+    :param num_qubits: int determines the number of qubits the QPE has to approximate with
+    :param shots: int number of estimates that should be returned
+    :param max_prob: float probability threshold, when to stop the estimation process early
+    :return: torch.tensor containing estimates
+    """
     N = 2**num_qubits
     b = best_phi_approximation(phi, num_qubits)   # best phi approximation
     delta = phi - b
@@ -226,9 +357,7 @@ def sample_qpe(phi: torch.tensor, num_qubits: int, shots: int, max_prob: float):
         result_prob = torch.zeros(shots, dtype=torch.float64) + b
         return result_prob
     if delta < 0:
-        # return torch.zeros(shots) + (b / N)
         raise ValueError(f"delta must be greater or equal to 0, but got {phi} - {b} = {delta}")
-    # print(f"phi-b/N = {phi - b/N}")
     threshold = torch.rand(shots, dtype=phi.dtype)
     result = torch.empty(shots, dtype=phi.dtype)
     in_progress = torch.ones(shots, dtype=torch.bool)
@@ -262,11 +391,20 @@ def sample_qpe(phi: torch.tensor, num_qubits: int, shots: int, max_prob: float):
     worst_value = 0.5 if (phi < 0.25 or phi > 0.75) else 0.
     indices_in_progress = torch.where(in_progress)
     result[indices_in_progress] = worst_value
-    # print(f"qpe took {num_itr} iterations")
     return result
 
 
 def sample_q_advantage(phi: torch.tensor, num_qubits: int, shots: int, max_prob: float):
+    """
+    Determines randomly which shot should be used with angle phi and which should be used with 1-phi.
+    Computes QPE estimates for each shot with angle phi or 1-phi.
+    Concatenates the estimations and returns them
+    :param phi: float angle used in the QPE estimation
+    :param num_qubits: int determines the number of qubits the QPE has to approximate with
+    :param shots: int number of estimates that should be returned
+    :param max_prob: float probability threshold, when to stop the estimation process early
+    :return: torch.tensor containing estimates
+    """
     threshold = torch.floor(torch.rand(shots)+0.5)
     num_phi = int(threshold.sum())
     res1 = sample_qpe(phi, num_qubits, num_phi, max_prob)
@@ -275,9 +413,19 @@ def sample_q_advantage(phi: torch.tensor, num_qubits: int, shots: int, max_prob:
 
 
 def qpe_one_prob(one_prob, num_qubits, shots, max_qpe_prob: float):
+    """
+    Given the probability of the loss qubit of some quantum circuit to be in state |1>, this function
+    calculates the angle theta = arcsin(sqrt(one_prob)) * π and uses sample_q_advantage to compute estimates
+    of the QPE with 50/50 angle theta or 1-theta. For each estimate calculates an estimated probability of the original
+    qubit being in state |1>, i.e. (sin(phi * π))**2. and returns the list of estimated |1> probabilities.
+    :param one_prob: probability of a qubit being in state |1>
+    :param num_qubits: int determines the number of qubits the QPE has to approximate with
+    :param shots: int number of estimates that should be returned
+    :param max_qpe_prob: float probability threshold, when to stop the estimation process early
+    :return: torch.tensor of floats
+    """
     theta = torch.arcsin(torch.sqrt(one_prob)) / torch.pi
     qpe_theta = sample_q_advantage(theta, num_qubits, shots, max_qpe_prob)
-    # print(f"theta: {theta}, qpe_theta: {qpe_theta}")
     new_one_prob = torch.square(torch.sin(qpe_theta*torch.pi))
     return new_one_prob
 
@@ -289,6 +437,19 @@ def train(
 ):
     """
     train the model with the given data and parameters
+    :param value_optimizer: optimizer used to update the value parameters
+    :param action_optimizer: optimizer used to update the action parameters
+    :param sub_iterations: list of sub-iterations. One sub-iteration is a list T, with T[0] = min change threshold for gradient. T[1] = max number of sub-iterations. T[2] = if 1 update action parameters, else value parameters
+    :param action_params: 2d list parameters of the action QNN
+    :param value_params: 1d list parameters of the value QNN
+    :param gamma: float discount factor
+    :param eps: float epsilon to make policy epsilon greedy
+    :param end_state_values: bool Determines, if terminal states are allowed to have state value
+    :param shots: int number of shots
+    :param qpe_qubits: int number of qubits used to estimate the QPE
+    :param max_qpe_prob: float max probability threshold when estimating the QPE
+    :param logger: Logger to log results
+    :param console_prints: bool almost no console prints, if False
     """
     trans_model = get_trans_model()
     value_params.grad = torch.zeros(value_params.shape, dtype=value_params.dtype)
@@ -328,16 +489,10 @@ def train(
                 if itr_type == 1:
                     action_optimizer.zero_grad()
                     compute_action_grad(action_params, values, trans_model, gamma, end_state_values, shots, qpe_qubits, max_qpe_prob)
-                    # action_loss.backward()
                 else:
                     value_optimizer.zero_grad()
                     compute_value_grad(value_params, policy, next_values, trans_model, gamma, end_state_values, shots, qpe_qubits, max_qpe_prob)
-                    # value_loss.backward()
 
-                # print(f"action_grads: {action_params.grad}")
-                # print(f"value_grads: {value_params.grad}")
-                # print(f"action grads: {action_qnn.in_q_parameters.grad}")
-                # value_grads.append(value_qnn.in_q_parameters.grad.detach().clone())
                 v_grads = torch.zeros(value_params.shape) if value_params.grad is None else value_params.grad.clone()
                 a_grads = torch.zeros(action_params.shape) if action_params.grad is None else action_params.grad.clone()
 
@@ -350,12 +505,10 @@ def train(
                     action_optimizer.step()
                     action_params_change = torch.max(torch.abs(action_params - old_action_params)).item()
                     insufficient_change = action_params_change < min_change
-                    # print(f"action diff: {torch.linalg.norm(action_params - clone)}")
                 else:
                     value_optimizer.step()
                     value_params_change = torch.max(torch.abs(value_params - old_value_params)).item()
                     insufficient_change = value_params_change < min_change
-                    # print(f"value diff: {torch.linalg.norm(value_params - clone)}")
 
                 # time
                 total_sub_it_time = time.time() - start_sub_it_time
@@ -370,8 +523,6 @@ def train(
                     )
                 action_probs = [entry.tolist() for entry in get_policy(action_params)]
                 state_values = (get_values(value_params, end_state_values) * get_v_max(gamma, end_state_values)).tolist()
-                # v_grads = torch.zeros(value_params.shape) if value_params.grad is None else value_params.grad
-                # a_grads = torch.zeros(action_params.shape) if action_params.grad is None else action_params.grad
                 logger.log(i+1, type_itr, sub_i, total_sub_it_time, time.time() - total_start, value_loss.item(), action_loss.item(), action_probs, state_values, v_grads.tolist(), a_grads.tolist(), action_params_change, value_params_change)
 
                 if insufficient_change:
