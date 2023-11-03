@@ -12,6 +12,7 @@ PennyLane = "^0.32.0"
 pandas = "^2.0.2"
 PennyLane-Lightning-Kokkos = "^0.32.0"
 matplotlib = "^3.8.0"
+seaborn = "^0.13.0"
 
 [tool.poetry.dev-dependencies]
 
