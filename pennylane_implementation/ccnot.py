@@ -1,8 +1,17 @@
+# This file was copied from the project https://github.com/UST-QuAntiL/qhana-plugin-runner in compliance with its license
 import pennylane as qml
 from typing import List
 
 
-def check_wire_uniquness(c_qubits: List[int], a_qubits: List[int], unclean_qubits: List[int], t_qubit: int):
+def check_wire_uniquness(c_qubits: List[int], a_qubits: List[int], unclean_qubits: List[int], t_qubit: int):    # Modified: Added function
+    """
+    Checks if the lists of wires c_qubits, a_qubits, unclean_qubits and t_qubits do not share any and that they
+    do not contain any duplicates.
+    :param c_qubits: list of qubits
+    :param a_qubits: list of qubits
+    :param unclean_qubits: list of qubits
+    :param t_qubit: list of qubits
+    """
     if len(c_qubits) != len(set(c_qubits)):
         raise ValueError("control qubits may not have duplicates")
     if len(a_qubits) != len(set(a_qubits)):
@@ -17,11 +26,24 @@ def check_wire_uniquness(c_qubits: List[int], a_qubits: List[int], unclean_qubit
                 raise ValueError(f"{name1} and {name2} may not share qubits!")
 
 
-def xor_int(x1, x2):
+def xor_int(x1, x2):    # Modified: Added function
+    """
+    Given x1 and x2 returns 0, if x1 == x2 and 1 otherwise
+    :param x1: int
+    :param x2: int
+    :return: int
+    """
     return 0 if x1 == x2 else 1
 
 
-def bit_list(num, num_bits):
+def bit_list(num, num_bits):    # Modified: Added function
+    """
+    Given an integer num and a number of bits num_bits, this function returns num's binary encoding
+    with num_bits many bits.
+    :param num: int
+    :param num_bits: int
+    :return: list
+    """
     bits = [int(el) for el in bin(num)[2:]]
     bits = [0]*(num_bits - len(bits)) + bits
     return bits
@@ -84,7 +106,15 @@ def one_ancilla_ccnot(c_qubits, a_qubit, t_qubit):
         unclean_ccnot(c1, c2, a_qubit)
 
 
-def clean_ccnot(c_qubits, a_qubits, t_qubit):
+def clean_ccnot(c_qubits, a_qubits, t_qubit):   # Modified: Added Doc String
+    """
+    This ccnot operation flips the target qubit t_qubit, if all c_qubits are in state |1>. This is achieved, by
+    picking the first two c_qubits c_0, c_1 and use a Toffoli to flip an ancilla qubit a_0. Next, it takes a_0 and
+    c_2 and uses a Toffoli to flip ancilla qubit a_1. This continues until there is only one c_qubit left. Then the
+    latest a_qubit and the last c_qubit are use together with a Toffoli gate, to flip the target qubit. All Toffolis
+    are reversed, except for the last one.
+    If |c_qubits| <= 2, then it takes the native X, CNOT and Toffoli. What ever suits best.
+    """
     # check_wire_uniquness(c_qubits, a_qubits, [], t_qubit)
     if len(c_qubits) == 0:
         qml.PauliX((t_qubit,))
@@ -132,12 +162,3 @@ def unclean_ccnot(c_qubits, a_qubits, t_qubit):
         qml.Toffoli(wires=[c_qubits[0], c_qubits[1], a_qubits[-n + 2]])
         for i in range(-n + 2, -1):
             qml.Toffoli(wires=[c_qubits[i], a_qubits[i], a_qubits[i + 1]])
-
-
-def main():
-    import qiskit as qk
-    print(qk.__qiskit_version__)
-
-
-if __name__ == '__main__':
-    main()

@@ -1,31 +1,53 @@
 from typing import List
 import numpy as np
 import pennylane as qml
-from utils import int_to_bitlist, get_bit_by_interpretation, bitlist_to_int
-from q_arithmetic import add_classical_quantum_registers, add_registers
+from utils import int_to_bitlist, bitlist_to_int
+from q_arithmetic import add_registers
 from ccnot import adaptive_ccnot
-from load_data import QAM, LittleTreeLoader
+from little_tree_loader import LittleTreeLoader
 
 
 def set_state_to_ones(reg_qubits, state):
+    """
+    Let state_j be the j'th bit of state, then this method executes:
+    (X**state_0) x (X**state_1) x (X**state_2) ....
+    """
     for r_qubit, s in zip(reg_qubits, state):
         if s == 0:
             qml.PauliX((r_qubit,))
 
 
 def simple_single_oracle(reg_qubits, state, ancilla_qubits, unclean_qubits, oracle_qubit):
+    """
+    If the reg_qubits are in the state state, then the oracle_qubit is flipped
+    :param reg_qubits: list of qubits
+    :param state: list of ints
+    :param ancilla_qubits: list of qubits
+    :param unclean_qubits: list of qubits
+    :param oracle_qubit: int single qubit
+    """
     set_state_to_ones(reg_qubits, state)
     adaptive_ccnot(reg_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
     set_state_to_ones(reg_qubits, state)
 
 
 def cc_simple_single_oracle(control_qubits, reg_qubits, state, ancilla_qubits, unclean_qubits, oracle_qubit):
+    """
+    Executes the simple_single_oracle in a controlled manner.
+    :param control_qubits: list of qubits controlling the circuit
+    :param reg_qubits: list of qubits
+    :param state: list of ints
+    :param ancilla_qubits: list of qubits
+    :param unclean_qubits: list of qubits
+    :param oracle_qubit: int single qubit target qubit
+    """
     set_state_to_ones(reg_qubits, state)
     adaptive_ccnot(control_qubits + reg_qubits, ancilla_qubits, unclean_qubits, oracle_qubit)
     set_state_to_ones(reg_qubits, state)
 
 
 class FrozenField:
+    """FrozenField determines the properties at its position, e.g. terminal state or reward"""
     def __init__(self, reward: float = None, end: bool = False):
         self.reward = reward
         self.end = end
@@ -43,7 +65,8 @@ class FrozenField:
         return FrozenField(reward=None, end=False)
 
 
-class FrozenLakeRotSwap:
+class FrozenLake:
+    """This implements the FrozenLake environment"""
     def __init__(
             self, map: List[List[FrozenField]], slip_probabilities: List[float], default_reward: float = 0.,
             r_qubit_is_clean: bool = False,
@@ -66,10 +89,15 @@ class FrozenLakeRotSwap:
 
         # possible edge cases
         self.possible_edge_cases = self.get_possible_edge_cases()
+        # x_xor_bits are used to determine, if there is an edge to the right. This is important, since not every map
+        # has a power of 2 many x-coordinates
         x_ceil_log2 = int(np.ceil(np.log2(len(map[0]))))
         self.x_xor_bits = [0 if el == 1 else 1 for el in int_to_bitlist(len(map[0]) - 1, x_ceil_log2)] if len(map[0]) > 1 else []
+        # y_xor_bits are used to determine, if there is an edge above. This is important, since not every map
+        # has a power of 2 many y-coordinates
         y_ceil_log2 = int(np.ceil(np.log2(len(map))))
         self.y_xor_bits = [0 if el == 1 else 1 for el in int_to_bitlist(len(map) - 1, y_ceil_log2)] if len(map) > 1 else []
+        # What to load in, such that we have |s' - s> and can add s later
         do_nothing = [0] * (x_ceil_log2 + y_ceil_log2)
         go_right = (([0] * (x_ceil_log2 - 1) + [1]) if x_ceil_log2 > 0 else []) + [0] * y_ceil_log2
         go_down = [0] * x_ceil_log2 + [1] * y_ceil_log2
@@ -83,8 +111,9 @@ class FrozenLakeRotSwap:
 
     def get_possible_edge_cases(self):
         """
-        [right, down, left, up]
-        :return:
+        Returns all possible edge cases, given the map of the FrozenLake, e.g. a 1x1 frozenLake is the only one where it
+        is possible to have edges all around one.
+        :return: list encoding edges [right, down, left, up]
         """
         possible_edge_cases = []
         if len(self.map) == 1 and len(self.map[0]) == 1:
@@ -113,6 +142,7 @@ class FrozenLakeRotSwap:
         return possible_edge_cases
 
     def check_edges(self, x_qubits, y_qubits, edge_qubits, ancilla_qubits, unclean_qubits):
+        """Checks if there are edges to the right, down, left or up and for each an ancilla qubit is flipped"""
         # Edge on the right
         for q, b in zip(x_qubits, self.x_xor_bits):
             if b == 1:
@@ -146,6 +176,10 @@ class FrozenLakeRotSwap:
                 qml.PauliX((q,))
 
     def check_edge_case(self, edge_case, x_qubits, y_qubits, e_qubit, ancilla_qubits, unclean_qubits):
+        """
+        First we check the edges, then we check if both edge cases are the same. If so, we flip an ancilla qubit.
+        Then we reverse the check for edges, since this frees up 4 qubits.
+        """
         edge_qubits = ancilla_qubits[:4]
         ancilla_qubits = ancilla_qubits[4:]
         self.check_edges(x_qubits, y_qubits, edge_qubits, [e_qubit] + ancilla_qubits, unclean_qubits)
@@ -162,6 +196,10 @@ class FrozenLakeRotSwap:
             self, x_qubits: List[int], y_qubits: List[int],
             ancilla_qubits: List[int], unclean_qubits: List[int], oracle_qubit: int
     ):
+        """
+        Goes through all states, if it is a terminal state, then the quantum register is checked for this state.
+        If one is in this state, an ancilla qubit get flipped.
+        """
         for y_idx, row in enumerate(self.map):
             for x_idx, field in enumerate(row):
                 if field.end:
@@ -177,6 +215,10 @@ class FrozenLakeRotSwap:
             action_qubits: List[int], action: List[int],
             ancilla_qubits: List[int], unclean_qubits: List[int] = None
     ):
+        """
+        Quantum Circuit, to execute a certain action. If the agent has chosen this action, then he slips accordingly
+        into the next state |s' - s>
+        """
         end_state_qubit = ancilla_qubits[0]
         e_qubit = ancilla_qubits[1]
         ancilla_qubits = ancilla_qubits[2:]
@@ -252,6 +294,11 @@ class FrozenLakeRotSwap:
             next_x_qubits: List[int], next_y_qubits: List[int],
             ancilla_qubits: List[int], unclean_qubits: List[int] = None
     ):
+        """
+        Executes movement in a direction, if the action register contains this action. Now
+        state |s' - s> is in the next state register and we can add the state register to the next state register, to
+        achieve |s'>
+        """
         slip_probs = self.slip_probabilities.copy()
         self.move_in_direction(slip_probs, x_qubits, y_qubits, next_x_qubits, next_y_qubits, action_qubits, [0, 0],
                                ancilla_qubits, unclean_qubits)
@@ -335,6 +382,9 @@ class FrozenLakeRotSwap:
             ancilla_qubits: List[int], unclean_qubits: List[int] = None
     ):
         """
+        Executes Quantum FrozenLake
+
+        Friendly reminder:
         00: Right
         01: Down
         10: Left

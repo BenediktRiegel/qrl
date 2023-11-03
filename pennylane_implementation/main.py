@@ -1,28 +1,31 @@
 from pathlib import Path
 from numpy import ceil, log2
-from torch import save, load
+from torch import save
 from json import dump as json_save
-import torch
 from torch.optim.lr_scheduler import StepLR
 from optimizer import OptimizerEnum
 from quantum_backends import QuantumBackends
 from train import train_with_two_opt
 from qnns import *
-from qnns.weight_init import WeightInitEnum
-from environment.frozen_lake import FrozenField
-from environment.frozen_lake import FrozenLakeRotSwap
-from loss_function.rot_swap_loss import loss_function as rot_swap_loss_function
+from qnns import WeightInitEnum
+from frozen_lake import FrozenLake
+from loss import loss_function as loss
 from wire_utils import get_wires
-# from visualize import get_frozen_lake_frame, plot_animated_frozen_lake, plot_loss
-from visualize.rot_swap_value import get_action_probs, get_frozen_lake_frame, plot_animated_frozen_lake, plot_loss
+from visualize import get_action_probs, get_frozen_lake_frame, plot_animated_frozen_lake, plot_loss
 from load_config import load_config, load_map
 
 
 def main(config_path: Path, config: dict):
+    """
+    Given a config and its path, this method runs the Quantum Policy Iteration with the specified config parameters.
+    At the end it saves the results and visualizations in the from the config specified path. It also copies the config
+    and deletes it in its old path.
+    :param config_path: Path
+    :param config: dict
+    """
     num_iterations = config["num_iterations"]
     # 1: action, 2: value, 3: return both, 4: lam * action + value
     sub_iterations = config["sub_iterations"]
-    precise = config["precise"]
     end_state_values = config["end_state_values"]
     action_qnn_depth = config["action_qnn_depth"]
     value_qnn_depth = config["value_qnn_depth"]
@@ -42,13 +45,14 @@ def main(config_path: Path, config: dict):
     map = load_map(config["map"])
     output_dir = Path(config["output_dir"])
 
+
     output_dir.mkdir(parents=True, exist_ok=False)
 
     fig_path = output_dir / "fig.html"
     loss_path = output_dir / "loss.html"
     print("prepare environment")
     map = [el for el in reversed(map)]
-    environment = FrozenLakeRotSwap(map, slip_probabilities, default_reward=default_reward, r_qubit_is_clean=True)
+    environment = FrozenLake(map, slip_probabilities, default_reward=default_reward, r_qubit_is_clean=True)
 
     log_rows = int(ceil(log2(len(map))))
     log_cols = int(ceil(log2(len(map[0]))))
@@ -60,7 +64,7 @@ def main(config_path: Path, config: dict):
     # wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 10])
     wires, total_num_wires = get_wires([log_cols, log_rows, 2, log_cols, log_rows, 7])
     x_qubits, y_qubits, action_qubits, next_x_qubits, next_y_qubits, ancilla_qubits = wires
-    backend = backend_enum.get_pennylane_backend("", "", total_num_wires, shots)
+    backend = backend_enum.get_pennylane_backend(total_num_wires, shots)
     print(f"{total_num_wires} qubits")
 
     print("prepare qnn")
@@ -80,7 +84,7 @@ def main(config_path: Path, config: dict):
     value_scheduler = StepLR(value_optimizer, step_size=1, gamma=2.)
     action_optimizer = action_optimizer_enum.get_optimizer(action_qnn.parameters(), action_lr)
     action_scheduler = StepLR(value_optimizer, step_size=1, gamma=2.)
-    loss_fn = rot_swap_loss_function
+    loss_fn = loss
 
     # fig = plot_frozen_lake(environment, action_qnn, len(x_qubits), len(y_qubits))
     # fig.show()
@@ -94,7 +98,6 @@ def main(config_path: Path, config: dict):
         backend=backend,
         gamma=gamma, lam=lam,
         eps=eps,
-        precise=precise,
         end_state_values=end_state_values,
         action_diff_method=action_diff_method,
         value_diff_method=value_diff_method,
@@ -146,6 +149,7 @@ def main(config_path: Path, config: dict):
 
 
 if __name__ == "__main__":
+    # Execute all configs in path "./configs" one after another
     path_dir = Path("./configs/")
     for config_path, config in load_config(path_dir):
         main(config_path, config)

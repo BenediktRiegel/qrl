@@ -3,6 +3,11 @@ from typing import List
 
 
 def bitlist_to_int(bitlist):
+    """
+    Compute an int from a bitlist. The bitlist is interpret to be in big endian
+    :param bitlist: list of bits
+    :return: int
+    """
     if bitlist is None:
         return None
     out = 0
@@ -13,6 +18,11 @@ def bitlist_to_int(bitlist):
 
 
 def int_to_bitlist(num: int, length: int):
+    """
+    Given an int, this method returns the big endian encoding of num. The returned list has the length length.
+    :param bitlist: list of bits
+    :return: int
+    """
     if length == 0:
         return []
     binary = bin(num)[2:]
@@ -23,6 +33,9 @@ def int_to_bitlist(num: int, length: int):
 
 
 def compute_zyz_decomposition(U):
+    """
+    Compute the zyz decomposition of a unitary U
+    """
     from pennylane.transforms import zyz_decomposition
     from numpy import arccos
     rot = zyz_decomposition(U, 0)[0]
@@ -33,43 +46,7 @@ def compute_zyz_decomposition(U):
 
 
 def is_binary(data):
+    """
+    checks if every entry in data is binary
+    """
     return np.array_equal(data, data.astype(bool))
-
-
-def get_bit_by_exponent(num: float, exp: int):
-    exp = -1*(exp+1)
-    num *= (2**exp)
-    num = num - int(num)
-    num = int(num*2)
-    return num
-
-
-def get_bit_by_interpretation(num: float, interpretation: str):
-    if interpretation == "sign":
-        return 1 if num < 0 else 0
-    else:
-        num *= -1 if num < 0 else 1
-        return get_bit_by_exponent(num, int(interpretation))
-
-
-def float_to_bitlist(num: float, interpretation: List[str]):
-    return [get_bit_by_interpretation(num, exp) for exp in interpretation]
-
-
-def get_float_by_interpretation(bitlist: List[int], interpretation: List[str]):
-    value = 0.
-    signs = 1
-    for bit, interp in zip(bitlist, interpretation):
-        if interp == "sign":
-            signs *= -1*bit
-        else:
-            value += (bit * 2**int(interp))
-    return value
-
-
-def main():
-    pass
-
-
-if __name__ == '__main__':
-    main()

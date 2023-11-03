@@ -1,16 +1,15 @@
 from typing import Generator, List, Tuple
 from pathlib import Path
 from json import load, dump
-from environment.frozen_lake import FrozenField
+from frozen_lake import FrozenField
 from datetime import datetime
-from copy import deepcopy
 
 
+# Default config values
 default_values = dict(
     num_iterations=12,
     # 1: action, 2: value, 3: return both, 4: lam * action + value
     sub_iterations=[(50, 2), (50, 1)],
-    precise=False,
     end_state_values=False,
     action_qnn_depth=1,
     value_qnn_depth=1,
@@ -36,6 +35,12 @@ default_values = dict(
 
 
 def str_to_map_row(row: str):
+    """
+    Converts a string encoded FrozenLake map row, into one consisting out of lists.
+    (Later on, this can be converted to a 2d list of FrozenFields)
+    :param: str row
+    :return: list new row
+    """
     new_row = []
     i = 0
     while i < len(row):
@@ -61,6 +66,11 @@ def str_to_map_row(row: str):
 
 
 def load_map(config_map: List[List] | str) -> List[List[FrozenField]]:
+    """
+    Converts the map saved in a config file to a 2d list containing the corresponding FrozenFields
+    :param config_map: 2d list | str from config file
+    :return: 2d list containing FrozenFields
+    """
     if isinstance(config_map, str):
         map_list = []
         rows = config_map.split("\n")
@@ -88,6 +98,13 @@ def load_map(config_map: List[List] | str) -> List[List[FrozenField]]:
 
 
 def _load_config(file_path: Path) -> dict:
+    """
+    Given the path to a config, i.e. a .json file, this method will load the contents of the config into a dictionary.
+    Missing values will be replaced by the default values. Additionally, it adds another folder to the directory
+    specified by the entry 'ouput_dir' of the config. The name of this folder is the current date and time.
+    :param file_path: path to config file
+    :return: dictionary of config
+    """
     config = default_values
     old_file_dir = file_path.parent.resolve()
     with file_path.open("r") as f:
@@ -102,6 +119,12 @@ def _load_config(file_path: Path) -> dict:
 
 
 def load_config(config_path: str | Path) -> Generator[Tuple[Path, dict], None, None]:
+    """
+    Takes a path to either a directory containing configs or a single config.
+    Returns a generator that loads each config and returns it with its path
+    :param config_path: path to single config or a directory containing configs
+    :return: generator each yield gives the file_path to the next config and the next config itself.
+    """
     config_path = Path(config_path)
 
     if config_path.is_file():
@@ -114,6 +137,10 @@ def load_config(config_path: str | Path) -> Generator[Tuple[Path, dict], None, N
 
 
 def save_config(config_path: str | Path, config: dict):
+    """
+    Dumps config into a .json file
+    :param config_path: path to a .json file in which to save the config.
+    """
     if isinstance(config_path, str):
         config_path = Path(config_path)
     with config_path.open("w") as f:

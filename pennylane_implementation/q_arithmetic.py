@@ -1,6 +1,10 @@
+# This file was copied from the project https://github.com/UST-QuAntiL/qhana-plugin-runner in compliance with its license
 import pennylane as qml
 from ccnot import adaptive_ccnot
 
+
+# Modified: Added str
+"""Implements the addition circuit of the work 'Reversible addition circuit using one ancillary bit with application to quantum computing' by Kaye"""
 
 def cc_increment_register(
     c_wires,
@@ -48,7 +52,15 @@ def cc_increment_register(
 
 def add_registers(
     control_reg, target_reg, indicator_wire, unclean_wires=None, indicator_is_zero=True
-):
+):  # Modified: Added doc str
+    """
+    Adds the value of control_reg onto target_reg (see Kaye)
+    :param control_reg: list of qubits
+    :param target_reg: list of qubits
+    :param indicator_wire: int single qubit
+    :param unclean_wires: list of unclean qubits
+    :param indicator_is_zero: bool
+    """
     if indicator_is_zero:
         qml.PauliX((indicator_wire[-1]))
     for i in range(len(control_reg) - 1, -1, -1):
@@ -64,9 +76,20 @@ def add_registers(
         qml.PauliX((indicator_wire[-1]))
 
 
+# Modified: Added function
 def add_classical_quantum_registers(
     classical_reg, quantum_reg, indicator_wire, unclean_wires=None, indicator_is_zero=True
 ):
+    """
+    This circuits adds the contents of the classical register classical_reg onto the quantum register quantum reg.
+    Instead of performing controlled increment register operations depending on if the j'th qubit of classical_reg
+    is in |0> or |1>, we can use if conditions, since the register is classical.
+    :param classical_reg: list of qubits
+    :param quantum_reg: list of qubits
+    :param indicator_wire: int single qubit
+    :param unclean_wires: list of qubits
+    :param indicator_is_zero: bool
+    """
     if not isinstance(indicator_wire, list):
         indicator_wire = [indicator_wire]
     if indicator_is_zero:
@@ -83,76 +106,3 @@ def add_classical_quantum_registers(
             )
     if indicator_is_zero:
         qml.PauliX((indicator_wire[-1]))
-
-
-def main():
-    reg = list(range(4))
-    indicator = list(range(len(reg), len(reg)+1))
-    ancilla = list(range(len(reg)+1, len(reg)+2))
-    device = qml.device("default.qubit", wires=reg+indicator+ancilla)
-    device.shots = 1024
-
-    from debug_utils import snapshots_to_debug_strings
-
-    def circuit():
-        qml.PauliX((indicator[0], ))
-        qml.Snapshot("Start")
-        for i in range(2**len(reg)):
-            cc_increment_register([], reg, ancilla, indicator[0], unclean_wires=[], indicator_is_zero=False)
-            qml.Snapshot(f"Inc{i}")
-
-        return qml.probs((0, ))
-
-    qnode = qml.QNode(circuit, device)
-    snaps = qml.snapshots(qnode)()
-    print("\n".join(snapshots_to_debug_strings(
-        snaps,
-        make_space_at=[reg[0], indicator[0], ancilla[0]],
-        show_zero_rounded=False,
-    )))
-    # print(qml.draw(qnode)())
-
-
-def main2():
-    from wire_utils import get_wires
-
-    num1 = [1, 0]
-    num2 = [0, 0]
-
-    for num1 in [[0, 0], [0, 1], [1, 0], [1, 1]]:
-        for num2 in [[0, 0], [0, 1], [1, 0], [1, 1]]:
-            wires, total_num_wires = get_wires([len(num1), len(num2), 1, 1])
-            reg1, reg2, indicator_wires, ancilla_wires = wires
-            device = qml.device("default.qubit", wires=total_num_wires)
-            device.shots = 1024
-
-            from debug_utils import snapshots_to_debug_strings
-
-            def circuit():
-                for q, b in zip(reg1, num1):
-                    if b == 1:
-                        qml.PauliX((q,))
-                for q, b in zip(reg2, num2):
-                    if b == 1:
-                        qml.PauliX((q,))
-
-                qml.Snapshot("Start")
-                add_registers(reg1, reg2, indicator_wires+ancilla_wires, unclean_wires=[], indicator_is_zero=True)
-                # add_classical_quantum_registers(num1, reg2, indicator_wires, unclean_wires=[], indicator_is_zero=True)
-                qml.Snapshot(f"Add")
-
-                return qml.probs((0, ))
-
-            qnode = qml.QNode(circuit, device)
-            snaps = qml.snapshots(qnode)()
-            print("\n".join(snapshots_to_debug_strings(
-                snaps,
-                make_space_at=[reg2[0], indicator_wires[0], ancilla_wires[0]],
-                show_zero_rounded=False,
-            )))
-            print()
-    # print(qml.draw(qnode)())
-
-
-if __name__ == "__main__":
-    main2()
