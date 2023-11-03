@@ -10,7 +10,7 @@ from train import train_with_two_opt
 from qnns import *
 from qnns.weight_init import WeightInitEnum
 from environment.frozen_lake import FrozenField
-from environment.frozen_lake_rot_swap import FrozenLakeRotSwap
+from environment.frozen_lake import FrozenLakeRotSwap
 from loss_function.rot_swap_loss import loss_function as rot_swap_loss_function
 from wire_utils import get_wires
 # from visualize import get_frozen_lake_frame, plot_animated_frozen_lake, plot_loss
@@ -18,7 +18,7 @@ from visualize.rot_swap_value import get_action_probs, get_frozen_lake_frame, pl
 from load_config import load_config, load_map
 
 
-def rot_swap_main(config_path: Path, config: dict):
+def main(config_path: Path, config: dict):
     num_iterations = config["num_iterations"]
     # 1: action, 2: value, 3: return both, 4: lam * action + value
     sub_iterations = config["sub_iterations"]
@@ -148,4 +148,4 @@ def rot_swap_main(config_path: Path, config: dict):
 if __name__ == "__main__":
     path_dir = Path("./configs/")
     for config_path, config in load_config(path_dir):
-        rot_swap_main(config_path, config)
+        main(config_path, config)
